@@ -1,0 +1,10 @@
+{
+  "schema": "edith.policy.v1",
+  "name": "static-hold-current-pose",
+  "entrypoint": "policy.py:StaticHoldPolicy",
+  "control_hz": 30,
+  "action_space": "joint_position",
+  "config": {
+    "freeze_first_observation": true
+  }
+}

@@ -1,0 +1,9 @@
+# Python 3.11; install local ABC/i2rt dependencies as described in README_LOCAL_YAM.md.
+projectaria-client-sdk==2.5.0
+numpy>=1.26
+opencv-python>=4.8
+pyrealsense2>=2.55
+pyzmq>=25
+h5py>=3.10
+tyro>=0.8
+dynamixel-sdk>=3.7

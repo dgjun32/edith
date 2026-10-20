@@ -1,0 +1,231 @@
+Ours prompt scripts: collaborative_sorting_general
+
+This file is the runtime source for the initial prompt and asynchronous update
+prompt used by the "ours" egocentric VLM pipeline for general collaborative
+handoff tasks.
+
+Runtime placeholders:
+- {duration:.1f}: length of the initial clip in seconds.
+- {fps:.1f}: video FPS.
+- {max_intervals}: maximum number of action queue elements.
+- {transcript_section}: Whisper transcript block, when available.
+- {segment_duration:.1f}: async clip length in seconds.
+- {t_start:.1f}, {t_end:.1f}: async clip time window in the episode.
+- {queue_state}: current text dump of the keyframe queue.
+- {visual_queue_section}: optional note about attached queue keyframe images.
+- {current_idx}: current queue index.
+- {current_instruction}: current subtask instruction.
+===============================================================================
+INITIAL SCRIPT
+===============================================================================
+
+You are monitoring the first {duration:.1f} seconds of a first-person egocentric
+video of a human-robot collaborative sorting task.
+
+Task context:
+The human and robot are working together to sort packed boxes. The table has
+multiple pink tumblers and multiple green tumblers. The human picks one tumbler
+at a time, packs it into a box, and places each completed box onto the shelf one
+at a time. The robot must pick up each box from the shelf and deliver it to the
+correct basket based on the tumbler inside:
+- Box containing a green tumbler → basket near the robot
+- Box containing a pink tumbler → basket near the human
+
+Your role: given what you observe in the human's egocentric video and the task
+context above, infer the human's current need and translate it into a concrete
+robot subtask.
+
+Watch the clip from start to finish and track what the human is doing. As you
+observe, identify every point at which the human's activity makes a robot
+subtask clear and actionable — a moment where it is now evident what specific
+object the robot should act on and where it should go.
+
+A robot task becomes clear when one or more of the following signals appear:
+- Physical handoff: the human places an object at the designated handoff
+  location (e.g., a shelf), making that specific object available for the robot.
+- Verbal instruction: the human explicitly states what should be done with a
+  specific object or destination.
+- Gesture: the human unambiguously points at or indicates a specific object or
+  destination.
+
+When multiple signals converge at the same moment, that is a strong, reliable
+event. Use all available evidence together rather than relying on any single cue.
+
+Carry context forward: if the human prepared or interacted with an object
+earlier in the clip (e.g., placing contents into a container), use that earlier
+context to characterize the object when it appears at the handoff location.
+For this sorting task, the tumbler color observed during packing determines the
+destination, but the robot task is not actionable until the completed box is put
+down at the handoff shelf. Use the packing moment only to infer and remember the
+tumbler color; capture the keyframe at the moment the box is placed/released on
+the shelf, not while the tumbler is being packed into the box.
+
+Speech may or may not occur. If the human gives a clear verbal instruction,
+incorporate it as evidence. If speech is conversational, ambiguous, or
+unrelated to the task, disregard it. Silence does not mean no robot action is
+needed — visual evidence is sufficient.
+
+Multiple robot tasks within one clip are common. Record each as a separate
+entry in chronological order. Omit a task only if the object or destination
+cannot be confidently identified.
+
+For each robot task, determine:
+- The instruction: "Put [object description] to [destination]"
+  using a precise visual description of the object and the destination from the
+  task context.
+- The time window (0.2–2.0 seconds) when the task became unambiguous — the
+  brief moment the decisive signal occurred. In this task, that decisive signal
+  should be the completed box being put down/released at the shelf. Do not use
+  the earlier packing moment as the keyframe interval.
+
+{transcript_section}
+Transcript/audio note: speech is not required for this task but should not be
+ignored. If the human provides a clear verbal instruction specifying an object
+or destination, treat it as evidence. If speech is ambiguous, conversational,
+or unrelated to the task, disregard it. An empty transcript does NOT mean no
+robot action is needed — use visual evidence.
+
+The video is {duration:.1f} seconds long, recorded at {fps:.1f} FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: describe the overall state of the collaboration
+in this clip — what the human has been doing, which objects have been made
+available, and what the robot needs to do as a result.
+
+{
+  "human_intent": "<overall collaborative state: what the human has been doing, which objects are ready for the robot, and which destinations they map to>",
+  "reasoning": "<explanation of the signals used to identify each robot task and its destination>",
+  "human_instruction_summary": "<one-line summary of the robot tasks derived from this clip>",
+  "keyframe_queue": [
+    {
+      "keyframe_description": "<precise visual description of the completed box at the handoff location, labeled by the inferred tumbler color inside>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ],
+  "action_queue": [
+    {
+      "keyframe_description": "<precise visual description of the completed box, labeled by the inferred tumbler color inside>",
+      "subtask_instruction": "<Put [object description] to [destination]>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ]
+}
+
+Important:
+- All timestamps are relative to this clip. 0.0 is the beginning of the clip.
+- keyframe_queue and action_queue must be the same length and sorted
+  chronologically.
+- Maximum {max_intervals} action queue elements allowed.
+- Each time window should be short and precise, around 0.2–2.0 seconds.
+- Keyframe intervals must correspond to the completed box being placed/released
+  on the shelf. Do not keyframe the tumbler-packing moment, even if that is when
+  the color is most visible.
+- The object description should identify the box by the tumbler color inferred
+  from earlier visual context, e.g., "box containing a green tumbler" or "box
+  containing a pink tumbler."
+- Always return positive start/end values.
+- If no unambiguous robot task can be identified, return empty keyframe_queue
+  and empty action_queue.
+
+===============================================================================
+ASYNCHRONOUS UPDATE SCRIPT
+===============================================================================
+
+You are monitoring a human-robot collaborative sorting task from a first-person
+egocentric video. You are receiving a new {segment_duration:.1f}-second clip
+covering {t_start:.1f}s to {t_end:.1f}s of the episode.
+
+Task context:
+The human and robot are working together to sort packed boxes. The table has
+multiple pink tumblers and multiple green tumblers. The human picks one tumbler
+at a time, packs it into a box, and places each completed box onto the shelf one
+at a time. The robot must pick up each box from the shelf and deliver it to the
+correct basket based on the tumbler inside:
+- Box containing a green tumbler → basket near the robot
+- Box containing a pink tumbler → basket near the human
+
+Your role: given what you observe in the human's egocentric video and the task
+context above, infer the human's current need and determine whether a new robot
+subtask should be added to the queue.
+
+The robot is currently executing the following task queue:
+
+{queue_state}
+{visual_queue_section}
+
+Currently executing: index {current_idx} - "{current_instruction}"
+
+CRITICAL: Each clip covers a disjoint, non-overlapping time window. Any human
+activity you observe in this clip is new — it was NOT present in any previous
+clip. Do NOT dismiss it as already handled.
+
+Watch this clip and determine whether the human's activity produces any new
+robot tasks that are not yet in the queue.
+
+A new robot task becomes clear when:
+- The human places an object at the handoff location, making a specific object
+  available for the robot with an identifiable destination.
+- The human gives a clear verbal instruction about a new object or destination.
+- The human's gesture unambiguously indicates a new target or destination.
+
+If the clip shows the human still preparing, the object has not yet reached the
+handoff location, or the object or destination cannot be confidently identified,
+no new task should be added.
+
+For this sorting task, packing a pink or green tumbler into a box is only
+evidence for the box's future destination. Do not append a new task, and do not
+select a keyframe interval, at the packing moment. Append only when the completed
+box is put down/released at the handoff shelf. Carry forward the observed
+tumbler color from packing so the box can be labeled by the corresponding color
+when it appears on the shelf.
+
+Choose exactly ONE command: NoOp or Append.
+
+1. NoOp: The human's activity in this clip does not produce any new robot task.
+
+2. Append: Add one or more new tasks to the END of the queue. Use this when
+   the human's activity clearly produces new robot work in this clip.
+   - Record one entry per distinct robot task.
+   - If the human makes multiple objects available in rapid succession, record
+     each as a separate entry — do NOT merge them.
+   - Sort entries chronologically.
+   - Omit any task where the object or destination cannot be confidently
+     identified.
+
+For each new entry, determine:
+- The instruction: "Put [object description] to [destination]"
+- The time window (0.2–2.0 seconds) when the task became unambiguous. In this
+  task, use the moment the completed box is put down/released at the shelf, not
+  the earlier moment when the tumbler is packed.
+- All timestamps are relative to this clip. 0.0 is the start, {segment_duration:.1f}
+  is the end.
+
+{transcript_section}
+Transcript/audio note: speech is not required but should not be ignored. If the
+human gives a clear verbal instruction about a new object or destination in this
+clip, treat it as evidence for a new robot task. If speech is ambiguous,
+conversational, or unrelated, disregard it. An empty transcript does NOT mean
+NoOp.
+
+This video clip is {segment_duration:.1f} seconds long, recorded at {fps:.1f}
+FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: describe what the human is doing in THIS clip
+and whether it produces new robot work.
+
+{
+  "human_intent": "<what the human is doing in this clip and whether new robot tasks are produced>",
+  "reasoning": "<explanation of the signals used to identify new robot tasks>",
+  "command": "<NoOp|Append>",
+  "new_elements": [
+    {
+      "keyframe_description": "<precise visual description of the completed box at the handoff location, labeled by the inferred tumbler color inside>",
+      "subtask_instruction": "<Put [object description] to [destination]>",
+      "keyframe_interval": {"start": <float, seconds>, "end": <float, seconds>}
+    }
+  ]
+}
+
+For NoOp: new_elements = []
+For Append: new_elements = list of new robot tasks, sorted by time

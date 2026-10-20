@@ -1,0 +1,269 @@
+Ours prompt scripts: collaborative_sorting
+
+This file is the runtime source for the initial prompt and asynchronous update
+prompt used by the "ours" egocentric VLM pipeline.
+
+Runtime placeholders:
+- {duration:.1f}: length of the initial clip in seconds.
+- {fps:.1f}: video FPS.
+- {max_intervals}: maximum number of action queue elements.
+- {transcript_section}: Whisper transcript block, when available.
+- {segment_duration:.1f}: async clip length in seconds.
+- {t_start:.1f}, {t_end:.1f}: async clip time window in the episode.
+- {queue_state}: current text dump of the keyframe queue.
+- {visual_queue_section}: optional note about attached queue keyframe images.
+- {current_idx}: current queue index.
+- {current_instruction}: current subtask instruction.
+- {task_definition}: task-specific context, goal, and routing rules.
+- {keyframe_event}: description of what event constitutes a keyframe in this task.
+- {keyframe_valid_conditions}: bulleted list of conditions for a valid keyframe.
+- {speech_assumption_note}: whether the human is expected to speak or point.
+
+===============================================================================
+INITIAL SCRIPT
+===============================================================================
+
+You are analyzing the first {duration:.1f} seconds of a first-person
+(egocentric) video recorded from a human collaborator's viewpoint.
+
+{task_definition}
+
+{speech_assumption_note}
+
+Your task has two steps. You MUST complete them in order:
+
+Step 1 - Visual Grounding: Extract keyframes
+
+{keyframe_event}
+
+A valid keyframe is the brief window during which ALL of the following hold:
+{keyframe_valid_conditions}
+
+In other words, the keyframe must capture the transition "box being placed
+ONTO the shelf by the human", not before and not long after.
+
+STRICT EXCLUSIONS - do NOT use any of these as the keyframe:
+- The human picking up, holding, or packing the tumbler into the box.
+- The packed box sitting on the table, workspace, or in the human's hand
+  before it is moved to the shelf. A box on the table is NOT a shelf
+  placement, even if it is fully packed.
+- The human carrying the box through the air toward the shelf, before contact
+  with the shelf has been made.
+- A frame after the human has fully walked away and the box has just been
+  resting on the shelf for a while (this is no longer the placement act).
+- Any moment before the box is on the shelf.
+
+The keyframe MUST visually show the placement action onto the shelf, because
+this is the precise event the robot must respond to.
+
+Use temporal continuity to connect the visible tumbler color to the later box:
+- If the human puts a pink tumbler into a box and then puts that box on the
+  shelf, infer that the shelf box contains the pink tumbler.
+- If the human puts a green tumbler into a box and then puts that box on the
+  shelf, infer that the shelf box contains the green tumbler.
+- If the tumbler color cannot be determined from the video, do not create a
+  robot subtask for that box.
+
+Each keyframe interval should be short and precise, around 0.2-2.0 seconds.
+
+IMPORTANT - multiple keyframes per clip are expected and required:
+- This task does NOT cap the number of keyframes per clip at one. A single
+  clip can and often will contain MULTIPLE valid shelf-placement keyframes.
+- The human may place several packed boxes onto the shelf in rapid
+  succession (e.g., one box after another within a few seconds). You MUST
+  emit one separate keyframe for EACH such placement, even if they happen
+  back-to-back.
+- Do NOT merge two consecutive placements into one keyframe. Do NOT skip a
+  later placement just because you already recorded an earlier one in the
+  same clip.
+- Sort all keyframes chronologically by their shelf-contact moment.
+- The only reasons to omit a placement are: (a) the tumbler color cannot be
+  inferred for that specific box, or (b) the placement act itself is not
+  visible (e.g., happens off-screen).
+
+Record each keyframe with:
+- keyframe_description: a fine-grained visual description of the completed box
+  on the shelf, including shelf position, box appearance, and the inferred
+  tumbler color inside the box.
+- keyframe_interval: {"start": <float>, "end": <float>} in seconds.
+
+Step 2 - Build the robot action queue
+
+Using the keyframes from Step 1, construct the robot action queue. Each action
+queue element is one completed sorting subtask for one packed box.
+
+Rules for subtask_instruction:
+- Use exactly one of these two task-specific instructions:
+  1. "pick up the box containing the pink tumbler and place it in the basket near the human"
+  2. "pick up the box containing the green tumbler and place it in the basket near the robot"
+- Choose the instruction only from the inferred tumbler color inside that box.
+- Do NOT create separate "pick up" and "place it" elements for this task. One
+  action queue element should represent moving one completed box to its correct
+  basket.
+- Do NOT mention unsupported details. If the color evidence is ambiguous,
+  exclude that box rather than guessing.
+
+Each action queue element must inherit the keyframe_interval from the
+corresponding shelf-placement keyframe in Step 1.
+
+{transcript_section}
+Transcript/audio note: the transcript may be empty and is not required for this
+task. Empty transcript is normal. Use visual evidence of the human packing a
+pink or green tumbler into a box and placing the packed box onto the shelf.
+
+The video is {duration:.1f} seconds long, recorded at {fps:.1f} FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: first infer the overall collaborative sorting
+state, then use that inferred state to ground Step 1 and Step 2.
+
+{
+  "human_intent": "<inferred high-level state: which box(es) the human completed, what tumbler color each box contains, and which basket each box should go to>",
+  "reasoning": "<brief explanation of visual cues used to connect tumbler color to shelf placement>",
+  "human_instruction_summary": "<one-line summary of the sorting subtasks created from the visual context>",
+  "keyframe_queue": [
+    {
+      "keyframe_description": "<completed box on shelf, including inferred tumbler color and shelf position>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ],
+  "action_queue": [
+    {
+      "keyframe_description": "<completed box on shelf, including inferred tumbler color and shelf position>",
+      "subtask_instruction": "<one of the two allowed task-specific instructions>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ]
+}
+
+Important:
+- All timestamps are relative to this clip. 0.0 is the beginning of the clip.
+- keyframe_queue contains ONLY completed shelf-placement moments.
+- action_queue contains one sorting subtask per completed box.
+- Maximum {max_intervals} action queue elements allowed.
+- Intervals must be sorted chronologically.
+- Each interval should be short and precise, around 0.2-2.0 seconds.
+- Always return positive start/end values.
+- If no completed packed box is placed onto the shelf, return empty
+  keyframe_queue and empty action_queue.
+
+===============================================================================
+ASYNCHRONOUS UPDATE SCRIPT
+===============================================================================
+
+You are monitoring a collaborative sorting task from a first-person egocentric
+video recorded from the human collaborator's viewpoint. You are receiving a new
+{segment_duration:.1f}-second video clip showing what just happened, covering
+{t_start:.1f}s to {t_end:.1f}s of the episode.
+
+{task_definition}
+
+The robot is executing a queue of completed box-sorting subtasks. The current
+keyframe queue is:
+
+{queue_state}
+{visual_queue_section}
+
+Currently executing: index {current_idx} - "{current_instruction}"
+
+CRITICAL: Each video clip covers a disjoint, non-overlapping time window. If a
+new packed box is placed onto the shelf in this clip, that is new information
+that was NOT present in any previous clip. Append a new sorting subtask for it.
+
+{speech_assumption_note}
+
+Choose exactly ONE command action: NoOp or Append.
+
+1. NoOp: No change needed. Use NoOp when this clip does not contain the ACT
+   of placing a packed box onto the shelf with a known tumbler color. This
+   includes cases where the human is still packing, the packed box is sitting
+   on the table or workspace but has not yet been moved to the shelf, the box
+   is being carried through the air but has not yet made contact with the
+   shelf, the tumbler color is not visible enough to infer, or the clip only
+   shows passive observation. A packed box on the table alone is NOT a shelf
+   placement.
+
+2. Append: Add new element(s) to the END of the queue. Use Append when this
+   clip contains one or more newly completed boxes placed onto the shelf and
+   the tumbler color inside each box can be inferred from the recent visual
+   context.
+
+   IMPORTANT - a single clip can produce multiple new_elements:
+   - Append is NOT limited to one new_element per clip. The human may place
+     several packed boxes onto the shelf in rapid succession within this
+     clip (e.g., box 1 then box 2 a couple seconds later). You MUST emit
+     one separate new_element for EACH such shelf placement.
+   - Do NOT merge two back-to-back placements into a single new_element.
+   - Do NOT drop a later placement just because you already added an
+     earlier one for this clip.
+   - Sort the new_elements chronologically by their shelf-contact moment.
+   - The only reasons to skip a placement are: (a) the tumbler color cannot
+     be inferred for that specific box, or (b) the placement act itself is
+     not visible in this clip.
+
+Keyframe rules:
+- The keyframe_interval for each new element MUST capture the ACT of placing
+  the box onto the shelf: the human's hand(s) are still on or just leaving
+  the box, the box has just made contact with the shelf, and the box ends
+  up resting stably on the shelf in that same window. The keyframe is the
+  shelf-placement action itself, not a static "box already on shelf" frame
+  long after the placement.
+- Do NOT choose the moment when the tumbler is visible but not yet packed.
+- Do NOT choose the moment when the packed box is sitting on the table or
+  workspace before being moved. A box on the table is NOT a shelf placement,
+  even if it is fully packed.
+- Do NOT choose the moment when the box is in the human's hand away from the
+  shelf (e.g., being carried through the air before contact with the shelf).
+- Do NOT choose a frame from well after the human has walked away and the
+  box has merely been sitting on the shelf for a while.
+- Do NOT append a subtask before the box is placed on the shelf.
+
+Tumbler-to-destination mapping:
+- pink tumbler inside the box -> basket near the human
+- green tumbler inside the box -> basket near the robot
+
+Rules for subtask_instruction:
+- Use exactly one of these two task-specific instructions:
+  1. "pick up the box containing the pink tumbler and place it in the basket near the human"
+  2. "pick up the box containing the green tumbler and place it in the basket near the robot"
+- Choose the instruction only from the inferred tumbler color inside that box.
+- Do NOT create separate "pick up" and "place it" elements for this task. One
+  new_element should represent moving one completed box to its correct basket.
+- If the color evidence is ambiguous, issue NoOp for that box rather than
+  guessing.
+
+For each new_element:
+- keyframe_description must describe the completed shelf box, its shelf
+  position, and the inferred tumbler color inside it.
+- keyframe_interval must be short and precise, around 0.2-2.0 seconds.
+- All timestamps are relative to this clip. 0.0 is the start of this clip and
+  {segment_duration:.1f} is the end of this clip.
+
+{transcript_section}
+Transcript/audio note: the transcript may be empty and is not required for this
+task. Empty transcript is normal. Prefer visual evidence over transcript text.
+
+This video clip is {segment_duration:.1f} seconds long, recorded at {fps:.1f}
+FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: first infer whether a new completed box was
+created in THIS clip, which tumbler color it contains, and which basket it
+should go to. Use that inferred state to decide whether NoOp or Append is
+appropriate.
+
+{
+  "human_intent": "<inferred intent/state in THIS clip: whether the human completed a new shelf box, what color tumbler it contains, and which basket it maps to>",
+  "reasoning": "<explanation of the visual evidence, especially the link between tumbler color and shelf placement>",
+  "command": "<NoOp|Append>",
+  "new_elements": [
+    {
+      "keyframe_description": "<completed box on shelf, including inferred tumbler color and shelf position>",
+      "subtask_instruction": "<one of the two allowed task-specific instructions>",
+      "keyframe_interval": {"start": <float, seconds>, "end": <float, seconds>}
+    }
+  ]
+}
+
+For NoOp: new_elements = []
+For Append: new_elements = list of new completed shelf boxes, sorted by time

@@ -1,0 +1,41 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local credentials and machine configuration
+.env
+.env.*
+!.env.example
+leaders.json
+
+# Editors and operating-system files
+.idea/
+.vscode/
+.DS_Store
+*~
+*.bak
+
+# Captures, generated output, and large device recordings
+recordings/
+data/
+outputs/
+temp/
+*.h5
+*.hdf5
+*.vrs
+*.bag
+
+# Source snapshots are kept locally, not in Git history
+*.zip
+
+# Packaging output
+build/
+dist/
+*.egg-info/

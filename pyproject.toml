@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edith-aria-yam"
+version = "0.1.0"
+description = "Synchronized Project Aria Gen 2 and YAM robot data collection/evaluation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "projectaria-client-sdk==2.5.0",
+  "numpy>=1.26",
+  "opencv-python>=4.8",
+  "pyrealsense2>=2.55",
+  "pyzmq>=25",
+  "h5py>=3.10",
+  "tyro>=0.8",
+  "dynamixel-sdk>=3.7",
+]
+
+[project.scripts]
+edith-collect = "piper_teleop.scripts.collect_trajectory_yam_local:main"
+edith-eval = "piper_teleop.scripts.eval_policy_local:main"
+edith-dashboard = "piper_teleop.scripts.live_sensor_dashboard:main"
+
+[tool.setuptools.packages.find]
+include = ["piper_teleop*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
