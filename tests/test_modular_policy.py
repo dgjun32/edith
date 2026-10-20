@@ -33,7 +33,7 @@ class PolicyDirectoryTests(unittest.TestCase):
             root = Path(tmp)
             (root / "policy.json").write_text(
                 '{"schema":"edith.policy.v1",'
-                '"entrypoint":"../outside.py:Policy"}'
+                '"entrypoint":"../outside.py:Policy","action_space":"joint_position"}'
             )
             with self.assertRaisesRegex(ValueError, "inside the policy directory"):
                 load_policy(root)
@@ -64,18 +64,12 @@ class AdapterContractTests(unittest.TestCase):
         image = np.zeros((2, 3, 3), np.uint8)
         bundle = {
             "aria": Sample(100, 100, 100, 1, image, "test"),
-            "eye_gaze": Sample(
-                100, 100, 100, 1, np.arange(3), "test", ("a", "b", "c")
-            ),
+            "eye_gaze": Sample(100, 100, 100, 1, np.arange(3), "test", ("a", "b", "c")),
             "hand_pose": Sample(
                 100, 100, 100, 1, np.arange(4), "test", ("a", "b", "c", "d")
             ),
-            "follower_left_state": Sample(
-                101, 101, 101, 1, np.ones(7), "test"
-            ),
-            "follower_right_state": Sample(
-                102, 102, 102, 1, np.full(7, 2), "test"
-            ),
+            "follower_left_state": Sample(101, 101, 101, 1, np.ones(7), "test"),
+            "follower_right_state": Sample(102, 102, 102, 1, np.full(7, 2), "test"),
         }
         obs = build_observation(
             bundle,
@@ -85,9 +79,7 @@ class AdapterContractTests(unittest.TestCase):
         )
         np.testing.assert_array_equal(obs["robot_state"][:7], np.ones(7))
         np.testing.assert_array_equal(obs["robot_state"][7:], np.full(7, 2))
-        self.assertEqual(
-            set(obs["images"]), {"aria_rgb", "aria_cropped_rgb"}
-        )
+        self.assertEqual(set(obs["images"]), {"aria_rgb", "aria_cropped_rgb"})
         self.assertEqual(set(obs["aria_perception"]), {"eye_gaze", "hand_pose"})
         self.assertEqual(obs["aria_perception"]["eye_gaze"]["fields"], ("a", "b", "c"))
 

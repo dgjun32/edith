@@ -153,6 +153,21 @@ explicitly enabled with `--execute-actions`. Sensor health is checked before CAN
 opens, the first command is bounded against live startup state, and an action
 lease continuously refreshes the command or aborts on failure.
 
+## Migrated policies
+
+The supplied `aria_eval_scripts_refactored` clients are now available as
+`policies/textvla`, `streamvla`, `edith`, `vlm_textvla`, and `fam_hri`.
+See [policy migration and usage](policies/README.md) for task presets, local
+OpenPI inference, Gemini/FAM-HRI options, transcript input and validation limits.
+Each adapter implements the directory contract below and consumes canonical
+synchronized RGB observations; old hardware-owning evaluation loops are not run.
+
+```bash
+uv pip install --python .venv/bin/python -e '.[policies]'
+.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+  --policy-dir policies/streamvla --check-policy-only
+```
+
 ## Policy directory contract
 
 `policy.json` uses schema `edith.policy.v1`:
@@ -169,7 +184,13 @@ lease continuously refreshes the command or aborts on failure.
 ```
 
 The class constructor receives `policy_dir` and `config`, and must implement
-`act(observation)`. Optional methods are `reset(observation)` and `close()`.
+`act(observation)` returning one finite 1-D action (not an action chunk).
+Optional methods are `reset(observation)` and `close()`. Policy-local imports
+use relative syntax (`from .helper import ...`) in an isolated namespace.
+Use repeatable `--policy-config` JSON files for overrides and
+`--check-policy-only` for validation without devices or inference connections.
+The runner's output FPS defaults to `control_hz`; an explicit different value
+is rejected to preserve the checkpoint's action timing.
 
 ## Validation and GitHub hygiene
 

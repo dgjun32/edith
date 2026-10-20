@@ -1,0 +1,230 @@
+Ours prompt scripts: generic_robot_task
+
+This file is the runtime source for the initial prompt and asynchronous update
+prompt used by the "ours" robot-task pipeline.
+
+Runtime placeholders:
+- {duration:.1f}: length of the initial clip in seconds.
+- {fps:.1f}: video FPS.
+- {max_intervals}: maximum number of action queue elements.
+- {transcript_section}: Whisper transcript block, when available.
+- {segment_duration:.1f}: async clip length in seconds.
+- {t_start:.1f}, {t_end:.1f}: async clip time window in the episode.
+- {queue_state}: current text dump of the keyframe queue.
+- {visual_queue_section}: optional note about attached queue keyframe images.
+- {current_idx}: current queue index.
+- {current_instruction}: current subtask instruction.
+
+===============================================================================
+INITIAL SCRIPT
+===============================================================================
+
+You are analyzing the first {duration:.1f} seconds of a first-person
+(egocentric) video recorded in a store. A human is giving instructions to a
+robot by pointing at objects and speaking.
+
+Your task has two steps. You MUST complete them in order:
+
+Step 1 - Visual Grounding: Extract keyframes
+
+Watch the video and identify every moment when the human points at or indicates
+an object/location. Each such moment is a keyframe.
+
+Use the convergence of multiple cues to pinpoint each keyframe:
+- Utterance timing: when the spoken instruction refers to a target, including
+  words like "this", "that", or naming an object.
+- Hand gesture: when the hand/finger clearly points to a specific object or
+  region.
+- Gaze fixation: when the wearer's gaze stabilises on the target, if gaze
+  overlay is available.
+
+Prioritise intervals where hand pointing and gaze are spatially aligned on the
+same object/region. Use utterance timing to confirm which object is meant.
+
+Each keyframe interval should be short and precise, around 0.2-2.0 seconds. Do
+not merge separate pointing events into one long interval.
+
+Record each keyframe with:
+- keyframe_description: a fine-grained visual description of what the human is
+  pointing at, including color, shape, brand, size, shelf position, and
+  distinguishing features. For example: "small red cupcake with white frosting
+  on the 2nd shelf from top, left side".
+- keyframe_interval: {"start": <float>, "end": <float>} in seconds.
+
+Step 2 - Contextual Recomposition: Build action queue
+
+Using the keyframes from Step 1, construct a robot action queue: the sequence of
+atomic steps a robot would execute.
+
+The human instruction may reference multiple objects, locations, destinations,
+or recipients in a single sentence. You must decompose it into individual
+steps.
+
+Rules for subtask_instruction:
+- MUST use exactly one of two verb forms in the general format:
+  1. "pick up <object>"
+  2. "place it <destination>"
+- Do NOT use any other verb, such as "point to", "grab", "put", "get", "move",
+  or "take". Always rephrase to "pick up" or "place it".
+- If the target object or destination is ambiguous, use the clearest visual
+  description supported by the clip and do not invent unsupported details.
+
+Each action queue element inherits the keyframe_interval from the corresponding
+keyframe in Step 1.
+
+{transcript_section}
+Transcript/audio note: the transcript may be empty because audio is checked
+only by a cheap SNR/frequency sanity gate or Whisper could not confidently decode
+speech. An empty transcript is NOT evidence that there was no human
+intervention. If the video shows clear pointing, gaze fixation, object
+indication, destination indication, or placement indication, use those visual
+cues to extract keyframes and build the action queue.
+
+The video is {duration:.1f} seconds long, recorded at {fps:.1f} FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: first infer the overall intent of what the human
+is trying to accomplish, then use that inferred intent to ground Step 1 and Step
+2.
+
+{
+  "human_intent": "<inferred high-level goal of the human: what they want the robot to do, which objects are involved, and which destinations/recipients. Reason about this FIRST, before extracting keyframes or building the action queue.>",
+  "reasoning": "<brief explanation of cues used in Step 1>",
+  "human_instruction_summary": "<one-line summary of what the human asked>",
+  "keyframe_queue": [
+    {
+      "keyframe_description": "<detailed visual description of what is pointed at>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ],
+  "action_queue": [
+    {
+      "keyframe_description": "<detailed visual description>",
+      "subtask_instruction": "<pick up object or place it destination>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ]
+}
+
+Important:
+- All timestamps are relative to this clip. 0.0 is the beginning of the clip.
+- keyframe_queue contains ONLY the raw pointing moments.
+- action_queue contains the recomposed robot steps.
+- Maximum {max_intervals} action queue elements allowed.
+- Intervals must be sorted chronologically.
+- Each interval should be short and precise, around 0.2-2.0 seconds.
+- Always return positive start/end values.
+
+===============================================================================
+ASYNCHRONOUS UPDATE SCRIPT
+===============================================================================
+
+You are monitoring a robot task execution from a first-person egocentric video
+in a store. You are receiving a new {segment_duration:.1f}-second video clip
+showing what just happened, covering {t_start:.1f}s to {t_end:.1f}s of the
+episode.
+
+The robot is executing a task represented as an ordered queue of pick/place
+subtask steps. The current keyframe queue is:
+
+{queue_state}
+{visual_queue_section}
+
+Currently executing: index {current_idx} - "{current_instruction}"
+
+CRITICAL: Each video clip covers a disjoint, non-overlapping time window. If you
+detect ANY human speech, gesture, or instruction in this clip, it is new
+information that was NOT present in any previous clip. You MUST update the queue
+accordingly. Do NOT dismiss it as "already reflected" or "already in the queue".
+NoOp is correct when the clip contains no task-relevant robot instruction, even
+if there is irrelevant speech, conversation, commentary, or noise.
+
+Transcript/audio note: the transcript may be empty. Audio is filtered only by a
+cheap SNR/frequency sanity gate before Whisper, and Whisper may still fail to
+decode speech. Empty transcript does NOT mean NoOp. If visual evidence shows
+pointing, gaze fixation, a requested object, a destination, or a placement
+indication, infer the intended queue update from the visual cues and any
+available queue context.
+
+Your task: analyze the new video clip and decide whether the queue needs to be
+modified. A human may intervene during the task to add more robot-relevant
+steps.
+Look for:
+- Human speech or gestures indicating an additional object, destination, or
+  subtask.
+- Pointing at new objects, destinations, or relevant task locations.
+- Verbal additions such as "also this", "put this there", or "bring me these".
+
+Choose exactly ONE command action: NoOp or Append. The Append command may
+contain multiple new_elements/keyframes from this same video clip:
+
+1. NoOp: No change needed. Use NoOp when no new task-relevant robot instruction
+   is present. This includes cases where there is no keyframe, the person is
+   simply observing, or there is speech/voice instruction that is irrelevant to
+   the robot's current task.
+
+2. Append: Add new element(s) to the END of the queue. Use this when the human
+   adds one or more objects, destinations, or subtasks to the task. If multiple
+   task-relevant targets are indicated in this clip, include ALL of them in one
+   Append response as separate new_elements, sorted by time.
+
+The keyframe intervals are determined by the convergence of multiple cues:
+- Utterance timing: when the instruction refers to the target object.
+- Hand gesture: when the hand/finger clearly points to a specific object or
+  region.
+- Gaze fixation: when the wearer's gaze stabilises on the target object, if gaze
+  information is available.
+
+Rules:
+- subtask_instruction MUST use ONLY one of these two forms:
+  1. "pick up <object>"
+  2. "place it <destination>"
+- Do NOT use any other verbs, such as "point to", "grab", "put", "get", "move",
+  "take", or "hand". Always rephrase to "pick up" or "place it".
+- keyframe_description must be fine-grained with visual attributes, such as
+  color, shape, brand name, size, shelf position, etc.
+- If the clip does not clearly support a task-relevant robot instruction, prefer
+  NoOp rather than inventing a new one.
+- If the clip contains voice instruction, conversation, commentary, or noise
+  that is not asking the robot to perform a task-relevant pick/place step, you
+  MUST issue NoOp.
+- All timestamps are relative to this clip. 0.0 is the start of this clip and
+  {segment_duration:.1f} is the end of this clip.
+- Apply contextual recomposition: if the human points at an object and a
+  destination in the same utterance, append separate elements such as
+  "pick up <object>" and "place it <destination>" in the natural execution
+  order. If the human points at multiple objects, append one "pick up ..."
+  element per object.
+- A clip may contain zero, one, or multiple keyframes. If there are zero
+  task-relevant keyframes, issue NoOp. If there is one valid task-relevant
+  indication, append one new_element. If there are multiple separate valid
+  task-relevant indications, append multiple new_elements and do NOT collapse
+  separate pointing events into one keyframe.
+- Every new_elements entry must have its own short keyframe_interval. Sort
+  new_elements chronologically by keyframe_interval.start.
+
+{transcript_section}
+This video clip is {segment_duration:.1f} seconds long, recorded at {fps:.1f}
+FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: first infer whether and how the human is
+intervening in this clip and whether they are adding robot-relevant steps. Use that
+inferred intent to decide whether NoOp or Append is appropriate and what
+new_elements to propose.
+
+{
+  "human_intent": "<inferred intent of the human in THIS clip: are they silent/passive, or do they want to add new objects/destinations? If intervening, describe the high-level goal. Reason about this FIRST, before choosing the command.>",
+  "reasoning": "<explanation of what you observed in the clip>",
+  "command": "<NoOp|Append>",
+  "new_elements": [
+    {
+      "keyframe_description": "<detailed visual description>",
+      "subtask_instruction": "<pick up object or place it destination>",
+      "keyframe_interval": {"start": <float, seconds>, "end": <float, seconds>}
+    }
+  ]
+}
+
+For NoOp: new_elements = []
+For Append: new_elements = list of new elements

@@ -1,0 +1,5 @@
+{
+  "planner": "gemini",
+  "gemini_model": "",
+  "prompt_file": "prompts/sorting_tumblers.txt"
+}

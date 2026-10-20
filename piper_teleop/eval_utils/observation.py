@@ -86,6 +86,7 @@ def build_observation(
             if name in bundle
         },
         "robot_state": state,
+        "arm_order": tuple(arm_order),
         "robot_state_by_arm": state_by_arm,
         "capture_timestamps_ns": {
             name: int(sample.timestamp_ns) for name, sample in bundle.items()

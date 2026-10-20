@@ -91,5 +91,7 @@ class RobotEvaluationEnv:
         return self.control_hz
 
     def safe_end(self) -> None:
-        self.robot.close()
-        self.sensors.safe_end()
+        try:
+            self.robot.close()
+        finally:
+            self.sensors.safe_end()

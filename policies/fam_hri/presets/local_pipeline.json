@@ -1,0 +1,9 @@
+{
+  "planner": "fam_hri",
+  "fam_hri_root": "",
+  "llm_model": "",
+  "device": "cuda",
+  "min_dwell_s": 0.5,
+  "max_disp_px": 25,
+  "object_prompt": "cup . bottle . muffin . basket . tool"
+}

@@ -6,6 +6,7 @@ live startup state before the command refresh thread starts.
 """
 
 import argparse
+from contextlib import ExitStack
 from dataclasses import asdict
 import importlib.util
 import json
@@ -29,6 +30,28 @@ DEFAULT_POLICY = Path(__file__).resolve().parents[2] / "policies/static_hold"
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--policy-dir", type=Path, default=DEFAULT_POLICY)
+    p.add_argument(
+        "--policy-config",
+        type=Path,
+        action="append",
+        default=[],
+        help="JSON config overrides; repeat to layer task/model settings",
+    )
+    p.add_argument(
+        "--check-policy-only",
+        action="store_true",
+        help="Validate policy without cameras, CAN or inference",
+    )
+    p.add_argument(
+        "--transcript-file",
+        type=Path,
+        help="Local UTF-8 transcript, refreshed on each observation",
+    )
+    p.add_argument(
+        "--policy-events-file",
+        type=Path,
+        help="Local JSON operator queue edit with a unique id",
+    )
     p.add_argument("--robot", choices=("abc-yam",), default="abc-yam")
     p.add_argument("--abc-root", type=Path, default=DEFAULT_ABC_ROOT)
     p.add_argument("--profile", default="abc_station_config")
@@ -36,7 +59,12 @@ def parser():
     p.add_argument("--aria-ip", default="", help="Bypass mDNS discovery")
     p.add_argument("--aria-profile", default="mp_streaming_demo")
     p.add_argument("--sync-camera", default="top")
-    p.add_argument("--output-fps", type=float, default=15)
+    p.add_argument(
+        "--output-fps",
+        type=float,
+        default=None,
+        help="Defaults to policy control_hz; must match it",
+    )
     p.add_argument("--tolerance-ms", type=float, default=100)
     p.add_argument("--max-age-ms", type=float, default=500)
     p.add_argument("--timeout", type=float, default=10)
@@ -90,7 +118,9 @@ def _check_report(args, config, policy):
         "aria",
         "i2rt",
     )
-    missing_modules = [name for name in modules if importlib.util.find_spec(name) is None]
+    missing_modules = [
+        name for name in modules if importlib.util.find_spec(name) is None
+    ]
     can = {
         name: {
             "interface": robot.follower.channel,
@@ -186,6 +216,20 @@ def _display(bundle, spread_ms):
     return cv2.waitKey(1) & 0xFF in (ord("q"), 27)
 
 
+def _add_policy_inputs(observation, args):
+    # STT/UI processes can atomically replace these local files. No new camera
+    # consumer and no cloud transcription is implicitly started by a policy.
+    if args.transcript_file:
+        observation["transcript"] = args.transcript_file.read_text(
+            encoding="utf-8"
+        ).strip()
+    if args.policy_events_file:
+        event = json.loads(args.policy_events_file.read_text(encoding="utf-8"))
+        if not isinstance(event, dict):
+            raise ValueError("Policy event must be a JSON object")
+        observation["policy_event"] = event
+
+
 def main(argv=None):
     args = parser().parse_args(argv)
     if (
@@ -195,14 +239,37 @@ def main(argv=None):
         or args.max_first_action_delta < 0
     ):
         raise ValueError("Invalid timing or first-action safety configuration")
-    policy = load_policy(args.policy_dir)
+    overrides = {}
+    for path in args.policy_config:
+        value = json.loads(path.read_text())
+        if not isinstance(value, dict):
+            raise ValueError("--policy-config must contain a JSON object")
+        overrides.update(value)
+    policy = load_policy(args.policy_dir, overrides)
+    try:
+        return _run(args, policy)
+    finally:
+        policy.close()
+
+
+def _run(args, policy):
+    if args.check_policy_only:
+        print(
+            json.dumps(
+                {"policy": policy.manifest, "directory": str(policy.root)}, indent=2
+            )
+        )
+        return 0
+    if args.output_fps is None:
+        args.output_fps = policy.control_hz
+    if args.output_fps != policy.control_hz:
+        raise ValueError(
+            "--output-fps must match policy control_hz so action chunks keep their intended rate"
+        )
     config = load_station(args.abc_root, args.profile)
-    if policy.manifest.get("action_space") != "joint_position":
-        raise ValueError("This robot adapter requires action_space='joint_position'")
     if args.check:
         report = _check_report(args, config, policy)
         print(json.dumps(report, indent=2))
-        policy.close()
         return 0 if report["ready"] else 1
     if args.output:
         if args.output.exists():
@@ -248,6 +315,7 @@ def main(argv=None):
             control_hz=policy.control_hz,
         )
         first_observation = evaluation.observation_from_bundle(first_bundle)
+        _add_policy_inputs(first_observation, args)
         policy.reset(first_observation)
         first_action = robot.validate_action(policy.act(first_observation))
         startup_flat = startup.flat(robot.arm_order)
@@ -288,10 +356,9 @@ def main(argv=None):
             observation = evaluation.get_policy_observation(args.timeout)
             bundle = evaluation.last_bundle
             if not args.execute_actions:
-                _synthetic_robot_samples(
-                    bundle, startup, action, robot.arm_order
-                )
+                _synthetic_robot_samples(bundle, startup, action, robot.arm_order)
                 observation = evaluation.observation_from_bundle(bundle)
+            _add_policy_inputs(observation, args)
             action = robot.validate_action(policy.act(observation))
             lease.update(action)
             if writer:
@@ -311,23 +378,23 @@ def main(argv=None):
     except KeyboardInterrupt:
         pass
     finally:
-        if lease is not None:
-            lease.close()
-        if evaluation is not None:
-            evaluation.safe_end()
-            robot = sensors = None
-        else:
-            if robot is not None:
-                robot.close()
-            if sensors is not None:
-                sensors.safe_end()
-        if writer is not None:
-            writer.close()
-        policy.close()
-        if not args.headless:
-            import cv2
+        # ExitStack attempts every cleanup even if a device shutdown fails.
+        with ExitStack() as cleanup:
+            if not args.headless:
+                import cv2
 
-            cv2.destroyAllWindows()
+                cleanup.callback(cv2.destroyAllWindows)
+            if writer is not None:
+                cleanup.callback(writer.close)
+            if evaluation is not None:
+                cleanup.callback(evaluation.safe_end)
+            else:
+                if sensors is not None:
+                    cleanup.callback(sensors.safe_end)
+                if robot is not None:
+                    cleanup.callback(robot.close)
+            if lease is not None:
+                cleanup.callback(lease.close)
     return 0
 
 

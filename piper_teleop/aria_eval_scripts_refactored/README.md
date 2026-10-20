@@ -1,3 +1,8 @@
+> **Gen 2 / YAM migration:** supported directory-policy adapters are in
+> [`policies/`](../../policies/README.md). The scripts below are historical
+> references with their original hardware-owning evaluation loops. Use
+> `eval_policy_local --policy-dir ...` for the synchronized local runtime.
+
 # aria_eval_scripts_final — Plan-A patches & usage
 
 This directory hosts the real-time robot-evaluation scripts that run the

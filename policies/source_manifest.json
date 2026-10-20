@@ -1,0 +1,284 @@
+{
+  "source_folder": "aria_eval_scripts_refactored",
+  "entries": [
+    {
+      "source": "0915_finetext.py",
+      "sha256": "f298867e834c44014ab7047b7351ee3fa23eb467641cacd65e92326b372df402",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "VLM_video_preprocess.py",
+      "sha256": "2f63b301b8533e1bf12b09bbfbe39f728b091b25f1a3333e120bacc3977edd62",
+      "policy_directory": null,
+      "note": "analysis/export utility, not a robot action policy"
+    },
+    {
+      "source": "eval_fam_hri.py",
+      "sha256": "4732ec72971b3dca82c0cefdf8fd70387605828757ca830d536c528c46eab598",
+      "policy_directory": "fam_hri",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_fam_hri_bottle.py",
+      "sha256": "394ee9e9661735c2d115772603f7e1d882fe5feb2a2ea329838f768a5c678656",
+      "policy_directory": "fam_hri",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_fam_hri_passing_tools.py",
+      "sha256": "e61fec95e2060e9cd82ea5c7520cad4da658d3ba11653b68fecfe66024dc175d",
+      "policy_directory": "fam_hri",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_famhri_before.py",
+      "sha256": "d7ae4e15d85ce4d376546cbdb6832350adfc0460b0b2526bdccb787788984ab5",
+      "policy_directory": "fam_hri",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_ablate_egoview_with_voice_260503.py",
+      "sha256": "8cfa7f2b4a5b1447bb3af1332eef91b604958c736cca3a66ea1de6c61740fb25",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "planner_source": "top"
+      }
+    },
+    {
+      "source": "eval_openpi_ablate_visual_keyframe_with_voice_260503.py",
+      "sha256": "0fa689b5cbc376e7a339a0298edfa19fa440b9ede1f26cea513ff4301b10c43a",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "black_keyframe": true
+      }
+    },
+    {
+      "source": "eval_openpi_ours_passing_tools.py",
+      "sha256": "5e824a3313b4d5f2bd1f9fce945c38e60e4722cd93b9bc57e05628e90ba4978b",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_ours_with_manual_keyframe.py",
+      "sha256": "4e92f74d6929bd81e4cb5007a99803ef0ffe5722d564bf3ad6bfce4478245275",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "planner": "manual"
+      }
+    },
+    {
+      "source": "eval_openpi_ours_with_manual_keyframe_realtime.py",
+      "sha256": "411dcc363b3aaaa4b21dd1575214194d0f03b60f958e3e0014a72689728b564f",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "planner": "manual"
+      }
+    },
+    {
+      "source": "eval_openpi_ours_with_voice.py",
+      "sha256": "b5296b3cd97d2e50a377284b5d8de4ed22c067d5258ca7a1e50d42cfba598865",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_ours_with_voice_260503.py",
+      "sha256": "b972e3f3eeffdc369e3c8bbd5e8f79538021ebeb64c1a141399c39c669038f5c",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_ours_with_voice_260503_blacked_out_keyframe.py",
+      "sha256": "4eb3dbfcdb20633446ba239d78006c326119389f26f1f66ab1d99dfe70dff882",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "black_keyframe": true
+      }
+    },
+    {
+      "source": "eval_openpi_ours_with_voice_260503_full_saved.py",
+      "sha256": "57e09622bafae487a674bb0ad6e6a6e6d5bc3498ff68a31c215b8f914728ce3a",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_ours_with_voice_260503_kor.py",
+      "sha256": "5d8a8889a857ad7811026a8a2a1005462eefecbcb2f31cf1ed2bbf6c2e33fece",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_ours_with_voice_full_no_crop_260503.py",
+      "sha256": "52aded42ba3c88f4fc91ac4dc53643dcd4ef6b23c686cc4c9a9f5908ed058390",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "gaze_crop": false
+      }
+    },
+    {
+      "source": "eval_openpi_ours_with_voice_kor.py",
+      "sha256": "8461cd025e2f076eb4c1b68eccf288182a286d6528959c9c8aeef3bedf983e83",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_ours_without_egoview_with_voice.py",
+      "sha256": "b79e3a8948262e171bfb74ebb908780ad163ff276346233092722340d32c331e",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "planner_source": "top"
+      }
+    },
+    {
+      "source": "eval_openpi_ours_without_keyframe_with_voice_passing_tools.py",
+      "sha256": "4717c91ea4c3ce413cdaf62bd803d07e189b8e9361d6a077f1aca72d4a719567",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "use_keyframe": false
+      }
+    },
+    {
+      "source": "eval_openpi_ours_without_keyframe_with_voice_passing_tools_0504.py",
+      "sha256": "de6442d33ab6d68c5135eaf22117d2b2e97f4fb267dd6571579a17f721748654",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "use_keyframe": false
+      }
+    },
+    {
+      "source": "eval_openpi_ours_without_keyframe_with_voice_serving_muffin.py",
+      "sha256": "c255f8b8accbb97735816ba37b14cceb9223d8c7704ae039b277461952a0d1f8",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "use_keyframe": false
+      }
+    },
+    {
+      "source": "eval_openpi_ours_without_keyframe_with_voice_sorting_tumbler.py",
+      "sha256": "dff1a0315a42d2fdea114501610b518b13ea3e19a25f5a36f8a6ebeb22c98a6d",
+      "policy_directory": "edith",
+      "note": "consolidated adapter; see migration guide for behavior changes",
+      "configuration_overrides": {
+        "use_keyframe": false
+      }
+    },
+    {
+      "source": "eval_openpi_streamvla_with_voice.py",
+      "sha256": "a0e0fcb679bf5ec7bc75e76bb17d432a99e7b44a80cffd41ddf98577fff2b8f9",
+      "policy_directory": "streamvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_streamvla_with_voice_bottle.py",
+      "sha256": "d456773c3d210367bd68054c5dabbf6e9d4130ad2134be239e680c76f36e37c0",
+      "policy_directory": "streamvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_streamvla_with_voice_muffin.py",
+      "sha256": "5d534eef5f04e2f920e1998289cdadd1d90404b5633122f6868b6b4b0d86094a",
+      "policy_directory": "streamvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_streamvla_with_voice_passing_tools.py",
+      "sha256": "2e631bd5d14b1286eeddf05d429af177f6baaeb90dec2a6d1ed26748df121022",
+      "policy_directory": "streamvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_streamvla_with_voice_while_episode.py",
+      "sha256": "10955a2ea2d13a5eddb15ef12b4de9bfec034af3278289bafa1975ab5fa127d5",
+      "policy_directory": "streamvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_textvla.py",
+      "sha256": "cf449754e57deae6cee02e65a2906c0ce4e16bb3e060f04e012ec4f8d4896b8d",
+      "policy_directory": "textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_textvla_with_voice.py",
+      "sha256": "55193f52862aeef350ca0b33d606ed733f45a91d06d70eb3b6a66cb24d240afb",
+      "policy_directory": "textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_textvla_with_voice_demo.py",
+      "sha256": "584c99ae0a33701e2b3a586dd2fdf923281c612867c160cef1c4849c0888aa37",
+      "policy_directory": "textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_textvla_with_voice_while_episode.py",
+      "sha256": "55e64db1249d7ad4215a90430b303e23eac1d4e950e9657dcc7c5ae1175188c6",
+      "policy_directory": "textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_vlm_textvla_with_voice_260503.py",
+      "sha256": "ac45dc0e5480288e2071b469ef5612cbb7d8def6f7cf795ba6a1c5fd6d9402a4",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_vlm_textvla_with_voice_260503_kor.py",
+      "sha256": "abdb4c30a3a86859bafb62439d1be539d9d71c63a6d6833fcef3a2d9d71e2009",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_vlm_textvla_with_voice_passing_tools.py",
+      "sha256": "7b62c474d98c7396402d2a4964cd5c6cf2da67a1d19031db15507da7acd3c680",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_vlm_textvla_with_voice_serving_muffin.py",
+      "sha256": "7874e1a82ac8d64c0ac33cd562b59a7e2f2635251fbc56fe3e7da8df17dfd806",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_vlm_textvla_with_voice_serving_muffin_kor.py",
+      "sha256": "3f681ec421a9856a531ee9087d9b5634e76c19e140fc5389ea10a97d5a06273b",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_vlm_textvla_with_voice_sorting_tumbler.py",
+      "sha256": "49478a4f8c92b3f69d9f35cfa3a708ee1d62141d454ae8391a45ffbebb71258f",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_openpi_vlm_textvla_with_voice_sorting_tumbler_kor.py",
+      "sha256": "bb780710529df0064495632b8fb76a3d40907e6520ccc41f25da1a40858560d1",
+      "policy_directory": "vlm_textvla",
+      "note": "consolidated adapter; see migration guide for behavior changes"
+    },
+    {
+      "source": "eval_vlm_baseline.py",
+      "sha256": "04035bbf5581b530cd895f6a0649d25aa8a95e67f6f78f7d0be618f8c142d181",
+      "policy_directory": null,
+      "note": "analysis/export utility, not a robot action policy"
+    },
+    {
+      "source": "export_keyframe_eval_csv.py",
+      "sha256": "b47b7ec9468adcc2e1bc0edd84d7c85965b80362e7a4ad1b15dfe56671956b80",
+      "policy_directory": null,
+      "note": "analysis/export utility, not a robot action policy"
+    }
+  ]
+}

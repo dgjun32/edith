@@ -1,0 +1,201 @@
+===============================================================================
+INITIAL SCRIPT
+===============================================================================
+
+The human and robot are working together to sort packed boxes. The table has
+multiple pink tumblers and multiple green tumblers. The human picks one tumbler
+at a time, packs it into a box, and places each completed box onto the shelf one
+at a time. The robot must pick up each box from the shelf and deliver it to the
+correct basket based on the tumbler inside:
+- Box containing a green tumbler → basket near the robot
+- Box containing a pink tumbler → basket near the human
+
+Your role: given what you observe in the robot's top-view camera looking down
+at the shelf, detect every moment a new box is placed onto the shelf and
+translate it into a concrete robot subtask.
+
+The camera is mounted above the robot and looks straight down at the shelf
+surface. The shelf is divided into four quadrants as seen from this overhead
+view: top-left, top-right, bottom-left, bottom-right. The human stands on the
+far side of the robot and places boxes onto the shelf from that direction.
+
+Watch the clip and detect every new box placement event. A robot task becomes
+clear when a box that was not previously on the shelf is now visible in a
+quadrant — regardless of whether the human's hand is clearly visible. The
+primary signal is the box itself appearing or settling in a quadrant. A clear
+hand release is strong confirmation but is not required.
+
+Multiple placements within one clip are common. Record each as a separate
+entry in chronological order. Omit a placement only if the quadrant or
+destination cannot be confidently identified.
+
+For each robot task, determine:
+- The instruction: pick EXACTLY one of the following eight strings — no other
+  wording is allowed:
+    "Put the box at the top left to the basket near the robot"
+    "Put the box at the top right to the basket near the robot"
+    "Put the box at the bottom left to the basket near the robot"
+    "Put the box at the bottom right to the basket near the robot"
+    "Put the box at the top left to the basket near the human"
+    "Put the box at the top right to the basket near the human"
+    "Put the box at the bottom left to the basket near the human"
+    "Put the box at the bottom right to the basket near the human"
+  IMPORTANT — quadrant grounding: first locate the white shelf surface in the
+  camera frame. Divide THAT shelf into four quadrants (top-left, top-right,
+  bottom-left, bottom-right of the shelf itself — not of the full image).
+  Then apply the perspective mirror: the quadrant labels in the instruction
+  are defined from the HUMAN's point of view, not the camera's. The human
+  faces the robot across the shelf, so left/right are mirrored:
+    - Box on the LEFT half of the shelf in the camera view  → "right" in the instruction
+    - Box on the RIGHT half of the shelf in the camera view → "left" in the instruction
+    - Top/bottom of the shelf remain the same.
+  Example: a box sitting at the bottom-left of the white shelf as seen by the
+  camera is at the bottom-right from the human's perspective → use "bottom right".
+- The time window (0.2–2.0 seconds) when the task became unambiguous — the
+  brief moment the decisive signal occurred.
+
+The video is {duration:.1f} seconds long, recorded at {fps:.1f} FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: describe which boxes are visible on the shelf,
+their quadrant positions, and what the robot needs to do with each.
+
+{
+  "human_intent": "<which boxes are on the shelf, their quadrant positions, and their basket destinations>",
+  "reasoning": "<explanation of the signals used to identify each robot task and its destination>",
+  "human_instruction_summary": "<one-line summary of the robot tasks derived from this clip>",
+  "keyframe_queue": [
+    {
+      "keyframe_description": "<precise visual description of the object at the handoff location>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ],
+  "action_queue": [
+    {
+      "keyframe_description": "<precise visual description of the object>",
+      "subtask_instruction": "<one of the 8 allowed strings exactly>",
+      "keyframe_interval": {"start": <float>, "end": <float>}
+    }
+  ]
+}
+
+Important:
+- All timestamps are relative to this clip. 0.0 is the beginning of the clip.
+- keyframe_queue and action_queue must be the same length and sorted
+  chronologically.
+- Maximum {max_intervals} action queue elements allowed.
+- Each time window should be short and precise, around 0.2–2.0 seconds.
+- Always return positive start/end values.
+- subtask_instruction MUST be copied verbatim from the eight allowed strings
+  listed above. Any other wording is invalid.
+- If no unambiguous robot task can be identified, return empty keyframe_queue
+  and empty action_queue.
+
+===============================================================================
+ASYNCHRONOUS UPDATE SCRIPT
+===============================================================================
+
+You are monitoring a human-robot collaborative sorting task from a top-view
+camera mounted on the robot looking straight down at the shelf. You are
+receiving a new {segment_duration:.1f}-second clip covering {t_start:.1f}s to
+{t_end:.1f}s of the episode.
+
+Task context:
+The human and robot are working together to sort packed boxes. The human stands
+on the far side of the robot and places packed boxes onto the shelf one at a
+time. The robot must pick up each box from the shelf and deliver it to the
+correct basket based on the tumbler inside:
+- Box containing a green tumbler → basket near the robot
+- Box containing a pink tumbler → basket near the human
+
+Your role: watch the top-view clip and determine whether a new box was placed
+onto the shelf during this time window, then add it to the queue if so.
+
+The robot is currently executing the following task queue:
+
+{queue_state}
+{visual_queue_section}
+
+Currently executing: index {current_idx} - "{current_instruction}"
+
+CRITICAL: Each clip covers a disjoint, non-overlapping time window. Any box
+placement you observe in this clip is new — it was NOT present in any previous
+clip. Do NOT dismiss it as already handled.
+
+Watch this clip and determine whether a new box appears on the shelf.
+
+Queue comparison rule:
+- The current queue is prior context, not a deduplication filter.
+- Do not decide NoOp because the same or similar instruction already appears
+  in the queue.
+- If this clip contains a new valid trigger event for robot work, choose
+  Append. If this clip does not contain a new valid trigger event, choose NoOp.
+
+A new robot task becomes clear when a box that was not previously on the shelf
+is now visible in a quadrant — regardless of whether the human's hand is
+clearly visible. The primary signal is the box itself appearing or settling in
+a quadrant. A clear hand release is strong confirmation but is not required.
+
+Choose exactly ONE command: NoOp or Append.
+
+1. NoOp: No new box was placed on the shelf in this clip.
+   Do NOT use NoOp because an existing queue entry appears to correspond to the
+   current observation. Existing queue entries came from prior context.
+
+2. Append: One or more new boxes were placed on the shelf in this clip.
+   - Record one entry per placement event.
+   - If multiple boxes are placed in rapid succession, record each separately.
+   - Sort entries chronologically.
+   - Omit any placement where the quadrant or destination cannot be confidently
+     identified.
+   - Append whenever a new placement event occurs, even if the resulting
+     instruction text matches an existing queue entry.
+
+For each new entry, determine:
+- The instruction: pick EXACTLY one of the following eight strings — no other
+  wording is allowed:
+    "Put the box at the top left to the basket near the robot"
+    "Put the box at the top right to the basket near the robot"
+    "Put the box at the bottom left to the basket near the robot"
+    "Put the box at the bottom right to the basket near the robot"
+    "Put the box at the top left to the basket near the human"
+    "Put the box at the top right to the basket near the human"
+    "Put the box at the bottom left to the basket near the human"
+    "Put the box at the bottom right to the basket near the human"
+  IMPORTANT — quadrant grounding: first locate the white shelf surface in the
+  camera frame. Divide THAT shelf into four quadrants (top-left, top-right,
+  bottom-left, bottom-right of the shelf itself — not of the full image).
+  Then apply the perspective mirror: the quadrant labels in the instruction
+  are defined from the HUMAN's point of view, not the camera's. The human
+  faces the robot across the shelf, so left/right are mirrored:
+    - Box on the LEFT half of the shelf in the camera view  → "right" in the instruction
+    - Box on the RIGHT half of the shelf in the camera view → "left" in the instruction
+    - Top/bottom of the shelf remain the same.
+  Example: a box sitting at the bottom-left of the white shelf as seen by the
+  camera is at the bottom-right from the human's perspective → use "bottom right".
+- The time window (0.2–2.0 seconds) when the task became unambiguous.
+
+This video clip is {segment_duration:.1f} seconds long, recorded at {fps:.1f}
+FPS.
+
+Return your answer as JSON. You MUST populate the keys in the exact order shown
+below. Start with human_intent: describe whether a new box was placed on the
+shelf in this clip, its quadrant, and its destination.
+
+{
+  "human_intent": "<whether a new box was placed, its quadrant position, and its basket destination>",
+  "reasoning": "<explanation of the signals used to identify new robot tasks>",
+  "command": "<NoOp|Append>",
+  "new_elements": [
+    {
+      "keyframe_description": "<precise visual description of the object at the handoff location>",
+      "subtask_instruction": "<one of the 8 allowed strings exactly>",
+      "keyframe_interval": {"start": <float, seconds>, "end": <float, seconds>}
+    }
+  ]
+}
+
+For NoOp: new_elements = []
+For Append: new_elements = list of new robot tasks, sorted by time.
+subtask_instruction MUST be copied verbatim from the eight allowed strings
+listed above. Any other wording is invalid.
