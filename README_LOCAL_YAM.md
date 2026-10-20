@@ -116,7 +116,8 @@ Existing output files are never overwritten. Each invocation is one episode;
 recording starts with the first complete bundle. Stream problems fail loudly
 instead of recording mismatched images. `--abc-root`, `--profile`, and
 `--aria-serial` and `--aria-ip` allow another local deployment/device. The IP
-option bypasses mDNS discovery while retaining the USB-NCM streaming transport.
+option is the glasses' USB-NCM address, used to bypass mDNS discovery; it is
+not a Wi-Fi address or the old external Aria publisher's address.
 
 ## Modular policy sanity path
 
@@ -146,7 +147,6 @@ Start a synchronized sensor-only recording (no CAN or motor commands) with:
 ```bash
 .venv/bin/python -m piper_teleop.scripts.collect_trajectory_yam_local \
   --mode preview \
-  --aria-ip 192.168.88.12 \
   --aria-profile mp_streaming_demo \
   --sync-camera top \
   --output-fps 15 \

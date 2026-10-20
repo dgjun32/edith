@@ -12,7 +12,7 @@ hash and destination for every top-level source script.
 | --- | --- | --- |
 | `textvla` | `eval_openpi_textvla*` | Robot views, YAM state, text |
 | `streamvla` | `eval_openpi_streamvla*` | Same plus current gaze-cropped Aria RGB |
-| `edith` | `eval_openpi_ours*`, keyframe/egoview ablations | Same plus a queued visual keyframe and subtask text |
+| `policy_edith` | `eval_openpi_ours*`, keyframe/egoview ablations | Same plus a queued visual keyframe and subtask text |
 | `vlm_textvla` | `eval_openpi_vlm_textvla*`, `0915_finetext` | Robot views/state and planner-generated subtask text; top camera for planning |
 | `fam_hri` | `eval_fam_hri*`, `eval_famhri_before` | Visual-keyframe VLA with optional local FAM-HRI grounding/planning |
 | `static_hold` | Existing hardware smoke policy | Hold the startup joint state |
@@ -21,6 +21,11 @@ All five migrated policies default to **manual/preset language**, a local
 OpenPI server at `ws://127.0.0.1:8000`, and 15 Hz. Merely loading a default policy
 opens no inference connection, camera, CAN interface or cloud session. Gemini
 planning and the external FAM-HRI pipeline are explicit options.
+
+The canonical Edith directory is `policy_edith`; `edith` is a compatibility
+symlink to it. Run it with `python -m piper_teleop.scripts.policy_edith`.
+The old `eval_openpi_ours_with_voice_260503.py` filename now launches this same
+local runtime. It no longer imports the remote Aria camera or Piper environment.
 
 The families consolidate duplicated experiment files; they are not claims of
 bit-for-bit reproduction of every dated experiment. Task/language variants are
@@ -99,7 +104,9 @@ and calibrated pixels. Invalid gaze falls back to the full image by default;
   --headless --duration 60
 ```
 
-Use `--aria-ip` or other existing sensor arguments for your local station.
+USB discovery is the default. If needed, use `--aria-ip <GLASSES_USB_NCM_IP>`
+for the directly connected glasses' USB interface, not a Wi-Fi or external
+publisher address. Aria capture always selects `StreamingInterface.USB_NCM`.
 `--policy-config` loads a JSON object that overrides the manifest's `config`
 fields; repeat it to apply files in order (last value wins, shallow merge).
 It does not modify policy files. `--instruction` takes precedence over the
@@ -127,7 +134,7 @@ live PCM to directory policies. Preset language requires neither STT nor an
 online speech service. Repeated unchanged text is not treated as a new spoken
 intervention in successive planner updates.
 
-For manual keyframes, `edith` captures the current synchronized Aria view when
+For manual keyframes, `policy_edith` captures the current synchronized Aria view when
 a new instruction arrives. Or configure explicit `subtasks` with `instruction`
 and a `keyframe` image path relative to the policy folder. A missing image path
 means capture at reset. Assets may not escape the policy directory.
@@ -147,7 +154,7 @@ spikes, and `completion_threshold: 0.8` advances only at the end of a chunk.
 
 ## Gemini planning and ablations
 
-`edith/presets/gemini_*.json` and `vlm_textvla/presets/gemini_*.json` select the
+`policy_edith/presets/gemini_*.json` and `vlm_textvla/presets/gemini_*.json` select the
 source task prompts. Set `gemini_model` to a model available to your account
 and export `GEMINI_API_KEY`. The blank model in these preset templates is
 intentional: loading one without selecting a model fails clearly.
@@ -161,8 +168,8 @@ preset:
 
 ```bash
 .venv/bin/python -m piper_teleop.scripts.eval_policy_local \
-  --policy-dir policies/edith \
-  --policy-config policies/edith/presets/gemini_passing_tools.json \
+  --policy-dir policies/policy_edith \
+  --policy-config policies/policy_edith/presets/gemini_passing_tools.json \
   --policy-config /path/to/model-settings.json \
   --duration 120 --headless
 ```

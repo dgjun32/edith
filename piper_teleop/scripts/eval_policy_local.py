@@ -1,8 +1,8 @@
 """Run one policy directory with synchronized Aria Gen 2 and robot views.
 
-The default is a no-motor static-policy check. Pass ``--execute-actions`` to
-launch ABC/YAM followers without GELLO; the first action is bounded against the
-live startup state before the command refresh thread starts.
+Evaluation does not open CAN by default. Pass ``--execute-actions`` to launch
+ABC/YAM followers without GELLO; the first action is bounded against the live
+startup state before the command refresh thread starts.
 """
 
 import argparse
@@ -27,9 +27,14 @@ from piper_teleop.robot_utils.factory import create_robot
 DEFAULT_POLICY = Path(__file__).resolve().parents[2] / "policies/static_hold"
 
 
-def parser():
+def parser(*, default_policy=DEFAULT_POLICY):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--policy-dir", type=Path, default=DEFAULT_POLICY)
+    p.add_argument(
+        "--policy-dir",
+        type=Path,
+        default=default_policy,
+        help="Directory containing policy.json (default: %(default)s)",
+    )
     p.add_argument(
         "--policy-config",
         type=Path,
@@ -56,7 +61,11 @@ def parser():
     p.add_argument("--abc-root", type=Path, default=DEFAULT_ABC_ROOT)
     p.add_argument("--profile", default="abc_station_config")
     p.add_argument("--aria-serial", default="")
-    p.add_argument("--aria-ip", default="", help="Bypass mDNS discovery")
+    p.add_argument(
+        "--aria-ip",
+        default="",
+        help="Glasses USB-NCM IP to bypass USB discovery (not an external camera server)",
+    )
     p.add_argument("--aria-profile", default="mp_streaming_demo")
     p.add_argument("--sync-camera", default="top")
     p.add_argument(
@@ -230,8 +239,8 @@ def _add_policy_inputs(observation, args):
         observation["policy_event"] = event
 
 
-def main(argv=None):
-    args = parser().parse_args(argv)
+def main(argv=None, *, default_policy=DEFAULT_POLICY):
+    args = parser(default_policy=default_policy).parse_args(argv)
     if (
         not 0 < args.tolerance_ms <= args.max_age_ms
         or args.timeout <= 0

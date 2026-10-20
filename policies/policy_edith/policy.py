@@ -1,4 +1,4 @@
-"""edith adapter for canonical synchronized Gen 2/YAM observations."""
+"""policy_edith adapter for canonical synchronized Gen 2/YAM observations."""
 
 from piper_teleop.policy_utils.keyframes import KeyframePolicy
 

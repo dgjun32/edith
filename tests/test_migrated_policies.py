@@ -411,7 +411,7 @@ class PlannerBackendTests(unittest.TestCase):
             with patch("google.genai.Client") as client:
                 with self.assertRaises(FileNotFoundError):
                     GeminiPlanner(
-                        ROOT / "policies/edith",
+                        ROOT / "policies/policy_edith",
                         {"gemini_model": "test-model", "prompt_file": "missing.txt"},
                     )
                 client.assert_not_called()
@@ -432,7 +432,7 @@ class PlannerBackendTests(unittest.TestCase):
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test-only-placeholder"}):
             with patch("google.genai.Client", return_value=client):
                 planner = GeminiPlanner(
-                    ROOT / "policies/edith",
+                    ROOT / "policies/policy_edith",
                     {
                         "gemini_model": "test-model",
                         "prompt_file": "prompts/passing_tools.txt",

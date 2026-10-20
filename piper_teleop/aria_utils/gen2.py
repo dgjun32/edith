@@ -145,6 +145,8 @@ class AriaGen2Camera:
                 target.ip = ip
                 target.serial = serial
             else:
+                # Discover only the USB cable's network interface. There is no
+                # fallback to Wi-Fi or to the former external Aria publisher.
                 targets = self.client.usb_network_devices()
                 targets = [
                     target for target in targets if not serial or target.serial == serial
@@ -152,7 +154,8 @@ class AriaGen2Camera:
                 if len(targets) != 1:
                     raise RuntimeError(
                         f"Expected one USB Aria Gen 2 device, found {len(targets)}; "
-                        "use --aria-serial or --aria-ip"
+                        "connect the glasses over USB and use --aria-serial or "
+                        "--aria-ip with the glasses' USB-NCM address"
                     )
                 target = targets[0]
             self.device = self.client.connect(target)
@@ -169,6 +172,8 @@ class AriaGen2Camera:
             self.started = True
             self.receiver = StreamReceiver(enable_image_decoding=True)
             server = sdk.HttpServerConfig()
+            # The glasses connect over USB-NCM, so the receiver must be
+            # reachable on that USB interface, not only on host loopback.
             server.address = "0.0.0.0"
             server.port = 6768
             self.receiver.set_server_config(server)

@@ -40,7 +40,7 @@
     {
       "source": "eval_openpi_ablate_egoview_with_voice_260503.py",
       "sha256": "8cfa7f2b4a5b1447bb3af1332eef91b604958c736cca3a66ea1de6c61740fb25",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "planner_source": "top"
@@ -49,7 +49,7 @@
     {
       "source": "eval_openpi_ablate_visual_keyframe_with_voice_260503.py",
       "sha256": "0fa689b5cbc376e7a339a0298edfa19fa440b9ede1f26cea513ff4301b10c43a",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "black_keyframe": true
@@ -58,13 +58,13 @@
     {
       "source": "eval_openpi_ours_passing_tools.py",
       "sha256": "5e824a3313b4d5f2bd1f9fce945c38e60e4722cd93b9bc57e05628e90ba4978b",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes"
     },
     {
       "source": "eval_openpi_ours_with_manual_keyframe.py",
       "sha256": "4e92f74d6929bd81e4cb5007a99803ef0ffe5722d564bf3ad6bfce4478245275",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "planner": "manual"
@@ -73,7 +73,7 @@
     {
       "source": "eval_openpi_ours_with_manual_keyframe_realtime.py",
       "sha256": "411dcc363b3aaaa4b21dd1575214194d0f03b60f958e3e0014a72689728b564f",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "planner": "manual"
@@ -82,19 +82,19 @@
     {
       "source": "eval_openpi_ours_with_voice.py",
       "sha256": "b5296b3cd97d2e50a377284b5d8de4ed22c067d5258ca7a1e50d42cfba598865",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes"
     },
     {
       "source": "eval_openpi_ours_with_voice_260503.py",
       "sha256": "b972e3f3eeffdc369e3c8bbd5e8f79538021ebeb64c1a141399c39c669038f5c",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes"
     },
     {
       "source": "eval_openpi_ours_with_voice_260503_blacked_out_keyframe.py",
       "sha256": "4eb3dbfcdb20633446ba239d78006c326119389f26f1f66ab1d99dfe70dff882",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "black_keyframe": true
@@ -103,19 +103,19 @@
     {
       "source": "eval_openpi_ours_with_voice_260503_full_saved.py",
       "sha256": "57e09622bafae487a674bb0ad6e6a6e6d5bc3498ff68a31c215b8f914728ce3a",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes"
     },
     {
       "source": "eval_openpi_ours_with_voice_260503_kor.py",
       "sha256": "5d8a8889a857ad7811026a8a2a1005462eefecbcb2f31cf1ed2bbf6c2e33fece",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes"
     },
     {
       "source": "eval_openpi_ours_with_voice_full_no_crop_260503.py",
       "sha256": "52aded42ba3c88f4fc91ac4dc53643dcd4ef6b23c686cc4c9a9f5908ed058390",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "gaze_crop": false
@@ -124,13 +124,13 @@
     {
       "source": "eval_openpi_ours_with_voice_kor.py",
       "sha256": "8461cd025e2f076eb4c1b68eccf288182a286d6528959c9c8aeef3bedf983e83",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes"
     },
     {
       "source": "eval_openpi_ours_without_egoview_with_voice.py",
       "sha256": "b79e3a8948262e171bfb74ebb908780ad163ff276346233092722340d32c331e",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "planner_source": "top"
@@ -139,7 +139,7 @@
     {
       "source": "eval_openpi_ours_without_keyframe_with_voice_passing_tools.py",
       "sha256": "4717c91ea4c3ce413cdaf62bd803d07e189b8e9361d6a077f1aca72d4a719567",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "use_keyframe": false
@@ -148,7 +148,7 @@
     {
       "source": "eval_openpi_ours_without_keyframe_with_voice_passing_tools_0504.py",
       "sha256": "de6442d33ab6d68c5135eaf22117d2b2e97f4fb267dd6571579a17f721748654",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "use_keyframe": false
@@ -157,7 +157,7 @@
     {
       "source": "eval_openpi_ours_without_keyframe_with_voice_serving_muffin.py",
       "sha256": "c255f8b8accbb97735816ba37b14cceb9223d8c7704ae039b277461952a0d1f8",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "use_keyframe": false
@@ -166,7 +166,7 @@
     {
       "source": "eval_openpi_ours_without_keyframe_with_voice_sorting_tumbler.py",
       "sha256": "dff1a0315a42d2fdea114501610b518b13ea3e19a25f5a36f8a6ebeb22c98a6d",
-      "policy_directory": "edith",
+      "policy_directory": "policy_edith",
       "note": "consolidated adapter; see migration guide for behavior changes",
       "configuration_overrides": {
         "use_keyframe": false

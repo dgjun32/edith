@@ -10,6 +10,11 @@ original timestamp and sequence number remain unchanged.
 The safe default is a static, no-CAN policy check. Motor execution is only
 enabled by the explicit `--execute-actions` flag.
 
+Glasses capture uses **USB-NCM on this computer**. No Wi-Fi or separate Aria
+streaming computer is required. USB-NCM is an IP link over the USB cable;
+its local HTTP receiver is part of the Gen 2 SDK.
+See the [official USB streaming guide](https://facebookresearch.github.io/projectaria_tools/gen2/ark/client-sdk/streaming).
+
 ## Structure
 
 ```text
@@ -30,6 +35,8 @@ and any checkpoints or normalization assets it uses. A new robot implements
 code do not change.
 
 The `aria_eval_scripts*` folders contain historical experiment entry points.
+`eval_openpi_ours_with_voice_260503.py` now redirects to the local `policy_edith`
+launcher and uses its current CLI flags.
 Some still include station-specific paths and online-service assumptions; the
 supported portable path is `eval_policy_local` plus `RobotEvaluationEnv`.
 
@@ -54,8 +61,10 @@ aria_gen2 auth pair
 ```
 
 Only one application can own an Aria or RealSense stream. Close other viewers
-before starting Edith. The known Gen 2 address can be supplied with
-`--aria-ip 192.168.88.12` to bypass discovery; streaming still uses USB-NCM.
+before starting Edith. By default the SDK discovers USB-connected glasses.
+Use `--aria-serial` if several are attached. If USB mDNS discovery is unavailable,
+`--aria-ip <GLASSES_USB_NCM_IP>` selects the glasses' USB address directly; this
+is neither a Wi-Fi address nor the old external camera server's IP.
 
 ## Connection and live preview
 
@@ -63,15 +72,14 @@ Run a read-only dependency/device check first:
 
 ```bash
 .venv/bin/python -m piper_teleop.scripts.eval_policy_local \
-  --check --headless --aria-ip 192.168.88.12
+  --check --headless
 ```
 
 Show Aria, top, left-wrist, and right-wrist views together. The Aria tile
 overlays the calibrated gaze point and 21 landmarks for each detected hand:
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.live_sensor_dashboard \
-  --aria-ip 192.168.88.12
+.venv/bin/python -m piper_teleop.scripts.live_sensor_dashboard
 ```
 
 ## Synchronized data collection
@@ -81,7 +89,6 @@ This records camera-only observations at 15 FPS without opening CAN:
 ```bash
 .venv/bin/python -m piper_teleop.scripts.collect_trajectory_yam_local \
   --mode preview \
-  --aria-ip 192.168.88.12 \
   --aria-profile mp_streaming_demo \
   --sync-camera top \
   --output-fps 15 \
@@ -143,7 +150,6 @@ Run the included static policy with cameras and inference but no CAN access:
 ```bash
 .venv/bin/python -m piper_teleop.scripts.eval_policy_local \
   --policy-dir policies/static_hold \
-  --aria-ip 192.168.88.12 \
   --headless --duration 10 \
   --output recordings/static_dry_run.h5
 ```
@@ -156,7 +162,8 @@ lease continuously refreshes the command or aborts on failure.
 ## Migrated policies
 
 The supplied `aria_eval_scripts_refactored` clients are now available as
-`policies/textvla`, `streamvla`, `edith`, `vlm_textvla`, and `fam_hri`.
+`policies/textvla`, `streamvla`, `policy_edith`, `vlm_textvla`, and `fam_hri`.
+The previous `policies/edith` path is a compatibility symlink.
 See [policy migration and usage](policies/README.md) for task presets, local
 OpenPI inference, Gemini/FAM-HRI options, transcript input and validation limits.
 Each adapter implements the directory contract below and consumes canonical
@@ -167,6 +174,20 @@ uv pip install --python .venv/bin/python -e '.[policies]'
 .venv/bin/python -m piper_teleop.scripts.eval_policy_local \
   --policy-dir policies/streamvla --check-policy-only
 ```
+
+Run the named Edith policy with synchronized local views and no motor commands:
+
+```bash
+.venv/bin/python -m piper_teleop.scripts.policy_edith --check-policy-only
+.venv/bin/python -m piper_teleop.scripts.policy_edith \
+  --policy-config policies/policy_edith/presets/passing_tools.json \
+  --duration 60 --headless
+```
+
+The VLA endpoint defaults to `ws://127.0.0.1:8000` on this computer. Selecting
+Gemini planning still needs internet for Gemini; manual/preset language and
+a local VLA server do not. Voice text can be supplied by a local STT process
+through `--transcript-file`.
 
 ## Policy directory contract
 

@@ -180,7 +180,11 @@ def parser():
     p.add_argument("--abc-root", type=Path, default=DEFAULT_ABC_ROOT)
     p.add_argument("--profile", default="abc_station_config")
     p.add_argument("--aria-serial", default="")
-    p.add_argument("--aria-ip", default="", help="Bypass mDNS discovery")
+    p.add_argument(
+        "--aria-ip",
+        default="",
+        help="Glasses USB-NCM IP to bypass USB discovery (not an external camera server)",
+    )
     p.add_argument("--aria-profile", default="mp_streaming_demo")
     p.add_argument("--aria-retry-seconds", type=float, default=2)
     p.add_argument("--duration", type=float, default=0, help="0 runs until q/Esc")
