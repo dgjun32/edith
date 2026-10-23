@@ -23,12 +23,12 @@ dependencies = [
 policies = ["msgpack>=1.0", "websockets>=14", "google-genai>=2.31,<3"]
 
 [project.scripts]
-edith-collect = "piper_teleop.scripts.collect_trajectory_yam_local:main"
-edith-eval = "piper_teleop.scripts.eval_policy_local:main"
-edith-dashboard = "piper_teleop.scripts.live_sensor_dashboard:main"
+edith-collect = "edith.scripts.collect_trajectory_yam_local:main"
+edith-eval = "edith.scripts.eval_policy_local:main"
+edith-dashboard = "edith.scripts.live_sensor_dashboard:main"
 
 [tool.setuptools.packages.find]
-include = ["piper_teleop*"]
+include = ["edith*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

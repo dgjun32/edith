@@ -1,9 +1,9 @@
 # Edith on one host: Aria Gen 2 + YAM
 
-Use `piper_teleop.scripts.collect_trajectory_yam_local` for the new station.
+Use `edith.scripts.collect_trajectory_yam_local` for the new station.
 The existing `collect_trajectory_aria` entry point now forwards to this local
 collector; the former implementation is `collect_trajectory_aria_piper_legacy`.
-The historical `piper_teleop` package name is retained for import compatibility.
+The package was renamed from `piper_teleop` to `edith`; update old imports accordingly.
 The old Piper/remote-Aria experiment scripts remain legacy entry points; they do
 not automatically become YAM policies. Do not feed Piper-trained joint actions
 into YAM: the joint conventions, gripper normalization and kinematics differ.
@@ -69,17 +69,17 @@ All commands below run from `edith_source` using `.venv/bin/python`.
 
 ```bash
 # Read-only dependency/config check; no camera or motor initialization.
-.venv/bin/python -m piper_teleop.scripts.collect_trajectory_yam_local --check
+.venv/bin/python -m edith.scripts.collect_trajectory_yam_local --check
 
 # First verify four synchronized views, without initializing the arms.
-.venv/bin/python -m piper_teleop.scripts.collect_trajectory_yam_local
+.venv/bin/python -m edith.scripts.collect_trajectory_yam_local
 
 # Save camera-only observations for 30 seconds.
-.venv/bin/python -m piper_teleop.scripts.collect_trajectory_yam_local \
+.venv/bin/python -m edith.scripts.collect_trajectory_yam_local \
   --mode preview --duration 30 --output data/camera_check.h5
 
 # Use verified ABC GELLO controllers to teleoperate both YAM arms and record.
-.venv/bin/python -m piper_teleop.scripts.collect_trajectory_yam_local \
+.venv/bin/python -m edith.scripts.collect_trajectory_yam_local \
   --mode teleop --leaders leaders.json --output data/episode_001.h5 \
   --instruction 'pick up the cup'
 ```
@@ -125,11 +125,11 @@ The policy evaluation path is split by ownership so that changing one device
 does not require editing the policy or synchronization loop:
 
 ```text
-piper_teleop/aria_utils/       Aria Gen 2 discovery/capture API
-piper_teleop/robot_utils/      robot contract, registry, ABC/YAM adapter
-piper_teleop/teleop_utils/     optional GELLO configuration and validation
-piper_teleop/policy_utils/     single-directory policy loader
-piper_teleop/eval_utils/       observation contract and action refresh
+edith/aria_utils/       Aria Gen 2 discovery/capture API
+edith/robot_utils/      robot contract, registry, ABC/YAM adapter
+edith/teleop_utils/     optional GELLO configuration and validation
+edith/policy_utils/     single-directory policy loader
+edith/eval_utils/       observation contract and action refresh
 policies/static_hold/          complete smoke-test policy deployment
 ```
 
@@ -145,7 +145,7 @@ hands use a zero presence flag and NaN values. Each HDF5 values group has a
 Start a synchronized sensor-only recording (no CAN or motor commands) with:
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.collect_trajectory_yam_local \
+.venv/bin/python -m edith.scripts.collect_trajectory_yam_local \
   --mode preview \
   --aria-profile mp_streaming_demo \
   --sync-camera top \
@@ -174,7 +174,7 @@ three station cameras, one Aria USB-NCM device, dependencies, and follower CAN
 interfaces are all visible:
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local --check --headless
+.venv/bin/python -m edith.scripts.eval_policy_local --check --headless
 ```
 
 For a live 2x2 inspection window (Aria, top, left, right) without robot control,
@@ -184,13 +184,13 @@ tile until the glasses connect. This UI is a latest-frame preview, not the
 synchronized dataset recorder.
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.live_sensor_dashboard
+.venv/bin/python -m edith.scripts.live_sensor_dashboard
 ```
 
 Run the full synchronized data/policy path without opening CAN (the default):
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --headless --duration 10 --output data/static_dry_run.h5
 ```
 
@@ -201,14 +201,14 @@ state, and the default first-action guard permits at most 0.05 in any action
 coordinate (the bundled policy produces exactly zero delta):
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --execute-actions --headless --duration 10 \
   --output data/static_hold_001.h5
 ```
 
 To deploy a different policy, pass only `--policy-dir /path/to/policy`. To add a
 different robot, implement `RobotAdapter` and register it in
-`piper_teleop/robot_utils/factory.py`; Aria, policy loading, recording, and eval
+`edith/robot_utils/factory.py`; Aria, policy loading, recording, and eval
 code remain unchanged.
 
 ## Data and Python integration
@@ -222,7 +222,7 @@ with six joint radians followed by the i2rt normalized gripper value. The
 `clock` attribute documents each stream's timestamp meaning. Readers must use
 root attribute `complete_rows` to ignore a partially written trailing row.
 
-`piper_teleop.eval_utils.RobotEvaluationEnv.get_observation()` exposes the
+`edith.eval_utils.RobotEvaluationEnv.get_observation()` exposes the
 existing nested evaluator interface, including `aria_rgb`, the three robot-view
 aliases, calibrated gaze pixels, projected hand landmarks, raw named Aria
 perception, and per-stream timing evidence. `get_policy_observation()` returns

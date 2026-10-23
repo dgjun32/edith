@@ -13,8 +13,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
 
-from piper_teleop.aria_utils import AriaGen2Camera
-from piper_teleop.policy_utils import load_policy
+from edith.aria_utils import AriaGen2Camera
+from edith.policy_utils import load_policy
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,7 +42,7 @@ class USBTransportTests(unittest.TestCase):
                         "aria.sdk_gen2.HttpServerConfig", side_effect=SimpleNamespace
                     ),
                     patch("aria.stream_receiver.StreamReceiver", return_value=receiver),
-                    patch("piper_teleop.aria_utils.gen2.time.sleep"),
+                    patch("edith.aria_utils.gen2.time.sleep"),
                 ):
                     camera = AriaGen2Camera(MagicMock(), serial="usb-glasses", ip=ip)
                     try:
@@ -87,8 +87,8 @@ class EdithEntrypointTests(unittest.TestCase):
     def test_direct_scripts_work_from_another_working_directory(self):
         with tempfile.TemporaryDirectory() as cwd:
             for relative in (
-                "piper_teleop/scripts/policy_edith.py",
-                "piper_teleop/aria_eval_scripts_refactored/eval_openpi_ours_with_voice_260503.py",
+                "edith/scripts/policy_edith.py",
+                "edith/aria_eval_scripts_refactored/eval_openpi_ours_with_voice_260503.py",
             ):
                 with self.subTest(script=relative):
                     result = subprocess.run(
@@ -108,9 +108,9 @@ class EdithEntrypointTests(unittest.TestCase):
         def guarded_import(name, *args, **kwargs):
             if name.startswith(
                 (
-                    "piper_teleop.envs.piper_env",
-                    "piper_teleop.robots.piper_robot",
-                    "piper_teleop.sensors.aria_camera",
+                    "edith.envs.piper_env",
+                    "edith.robots.piper_robot",
+                    "edith.sensors.aria_camera",
                     "common",
                     "ours_utils",
                     "openpi_client",
@@ -120,9 +120,9 @@ class EdithEntrypointTests(unittest.TestCase):
             return original_import(name, *args, **kwargs)
 
         paths = [
-            ROOT / "piper_teleop/scripts/policy_edith.py",
+            ROOT / "edith/scripts/policy_edith.py",
             ROOT
-            / "piper_teleop/aria_eval_scripts_refactored"
+            / "edith/aria_eval_scripts_refactored"
             / "eval_openpi_ours_with_voice_260503.py",
         ]
         for path in paths:
@@ -132,11 +132,11 @@ class EdithEntrypointTests(unittest.TestCase):
                     patch("builtins.__import__", side_effect=guarded_import),
                     patch.object(sys, "argv", [str(path), "--check-policy-only"]),
                     patch(
-                        "piper_teleop.scripts.eval_policy_local.load_station",
+                        "edith.scripts.eval_policy_local.load_station",
                         side_effect=AssertionError("Must not access station"),
                     ),
                     patch(
-                        "piper_teleop.policy_utils.openpi.OpenPIClient._connect",
+                        "edith.policy_utils.openpi.OpenPIClient._connect",
                         side_effect=AssertionError("Must not connect to model"),
                     ),
                     redirect_stdout(output),

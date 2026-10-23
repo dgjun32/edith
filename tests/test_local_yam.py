@@ -9,9 +9,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
-from piper_teleop.local.sync import Sample, Synchronizer
-from piper_teleop.local.aria import AriaGen2Camera
-from piper_teleop.local.recording import BundleWriter
+from edith.local.sync import Sample, Synchronizer
+from edith.local.aria import AriaGen2Camera
+from edith.local.recording import BundleWriter
 
 
 def sample(t, sequence=1, data=None):
@@ -103,11 +103,11 @@ class SyncTests(unittest.TestCase):
 
 class AriaTests(unittest.TestCase):
     def test_direct_ip_inspection_connects_without_streaming(self):
-        from piper_teleop.aria_utils import inspect_device_connection
+        from edith.aria_utils import inspect_device_connection
 
         completed = SimpleNamespace(returncode=0, stderr="")
         with patch(
-            "piper_teleop.aria_utils.gen2.subprocess.run",
+            "edith.aria_utils.gen2.subprocess.run",
             return_value=completed,
         ) as run:
             status = inspect_device_connection("serial", "192.0.2.1")
@@ -131,7 +131,7 @@ class AriaTests(unittest.TestCase):
         camera = self.camera()
         image = SimpleNamespace(to_numpy_array=lambda: np.zeros((5, 7, 3), np.uint8))
         with patch(
-            "piper_teleop.aria_utils.gen2.time.perf_counter_ns",
+            "edith.aria_utils.gen2.time.perf_counter_ns",
             return_value=1_000_000_000,
         ):
             camera._rgb(image, SimpleNamespace(capture_timestamp_ns=500))
@@ -139,6 +139,58 @@ class AriaTests(unittest.TestCase):
         self.assertEqual(frame.timestamp_ns, 975_000_000)
         self.assertEqual(frame.source_timestamp_ns, 500)
         self.assertEqual(frame.data.shape, (5, 7, 3))
+
+    def test_audio_maps_frame_capture_times_and_is_taken_once(self):
+        from edith.aria_utils import AudioBuffer
+
+        camera = self.camera()
+        camera.audio = AudioBuffer()
+        step = 20_833  # one 48 kHz frame in device nanoseconds
+        frames = np.arange(8, dtype=np.int32).reshape(4, 2)
+        with patch(
+            "edith.aria_utils.gen2.time.perf_counter_ns",
+            return_value=1_000_000_000,
+        ):
+            camera._audio(
+                SimpleNamespace(data=frames.reshape(-1).tolist()),
+                SimpleNamespace(capture_timestamps_ns=[i * step for i in range(4)]),
+                2,
+            )
+        self.assertEqual(camera.audio.sample_rate_hz, 48_000)
+        last = 975_000_000  # receive time minus 25 ms TicSync latency
+        first = camera.audio.take(last - 2 * step)
+        np.testing.assert_array_equal(first.data, frames[:2])
+        self.assertEqual(first.timestamp_ns, last - 2 * step)
+        self.assertEqual(first.source_timestamp_ns, step)
+        rest = camera.audio.take(last)
+        np.testing.assert_array_equal(rest.data, frames[2:])
+        self.assertEqual((rest.timestamp_ns, rest.sequence), (last, 4))
+        empty = camera.audio.take(last + 1)
+        self.assertEqual(empty.data.shape, (0, 2))
+        self.assertEqual(empty.timestamp_ns, last + 1)
+
+    def test_audio_bounds_memory_and_reports_drops_in_sequence(self):
+        from edith.aria_utils import AudioBuffer
+
+        audio = AudioBuffer(max_seconds=2 / 48_000)
+        for start in (0, 2, 4):
+            times = np.array([start, start + 1], dtype=np.int64)
+            audio.add(times, times, start, np.full((2, 1), start, np.int32))
+        taken = audio.take(10)
+        np.testing.assert_array_equal(taken.data[:, 0], [4, 4])
+        self.assertEqual(taken.sequence, 6)
+
+    def test_bad_audio_block_is_reported(self):
+        from edith.aria_utils import AudioBuffer
+
+        camera = self.camera()
+        camera.audio = AudioBuffer()
+        camera._audio(
+            SimpleNamespace(data=[1, 2, 3]),
+            SimpleNamespace(capture_timestamps_ns=[1, 2]),
+            2,
+        )
+        self.assertIsInstance(camera.sink.error, ValueError)
 
     def test_invalid_sync_does_not_emit_frames(self):
         camera = self.camera(False)
@@ -154,7 +206,7 @@ class AriaTests(unittest.TestCase):
         self.assertIsInstance(camera.sink.error, ValueError)
 
     def test_eye_gaze_uses_tracking_time_and_named_schema(self):
-        from piper_teleop.aria_utils import EYE_GAZE_FIELDS
+        from edith.aria_utils import EYE_GAZE_FIELDS
 
         camera = self.camera()
         vergence = SimpleNamespace(
@@ -195,7 +247,7 @@ class AriaTests(unittest.TestCase):
             vergence=vergence,
         )
         with patch(
-            "piper_teleop.aria_utils.gen2.time.perf_counter_ns",
+            "edith.aria_utils.gen2.time.perf_counter_ns",
             return_value=1_000_000_000,
         ):
             camera._eye_gaze(gaze)
@@ -206,7 +258,7 @@ class AriaTests(unittest.TestCase):
         self.assertEqual(result.data.shape, (len(EYE_GAZE_FIELDS),))
 
     def test_hand_pose_records_two_fixed_size_hands(self):
-        from piper_teleop.aria_utils import HAND_POSE_FIELDS
+        from edith.aria_utils import HAND_POSE_FIELDS
 
         camera = self.camera()
         side = SimpleNamespace(
@@ -226,7 +278,7 @@ class AriaTests(unittest.TestCase):
             right_hand=None,
         )
         with patch(
-            "piper_teleop.aria_utils.gen2.time.perf_counter_ns",
+            "edith.aria_utils.gen2.time.perf_counter_ns",
             return_value=1_000_000_000,
         ):
             camera._hand_pose(pose)
@@ -238,7 +290,7 @@ class AriaTests(unittest.TestCase):
         self.assertTrue(np.isnan(result.data[79:]).all())
 
     def test_calibrated_gaze_and_hand_projection(self):
-        from piper_teleop.aria_utils import EYE_GAZE_FIELDS, HAND_POSE_FIELDS
+        from edith.aria_utils import EYE_GAZE_FIELDS, HAND_POSE_FIELDS
 
         class IdentityTransform:
             def inverse(self):
@@ -333,13 +385,30 @@ class RecordTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 BundleWriter(path, {})
 
+    def test_roundtrip_variable_length_audio(self):
+        import h5py
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "episode.h5"
+            writer = BundleWriter(path, {})
+            pcm = np.arange(6, dtype=np.int32).reshape(3, 2)
+            writer.append({"audio": sample(100, data=pcm)})
+            writer.append({"audio": sample(200, data=np.zeros((0, 2), np.int32))})
+            writer.close()
+            with h5py.File(path) as f:
+                self.assertEqual(f["audio"].attrs["num_channels"], 2)
+                np.testing.assert_array_equal(
+                    f["audio/pcm"][0].reshape(-1, 2), pcm
+                )
+                self.assertEqual(f["audio/pcm"][1].size, 0)
+
 
 class IntegrationTests(unittest.TestCase):
     def test_actual_abc_ipc_wire_format(self):
         import uuid
         import zmq
-        from piper_teleop.local.abc_runtime import load_station
-        from piper_teleop.local.sources import ABCSubscriber
+        from edith.local.abc_runtime import load_station
+        from edith.local.sources import ABCSubscriber
 
         load_station()
         from deploy.robot import communication as comms
@@ -366,14 +435,14 @@ class IntegrationTests(unittest.TestCase):
             context.term()
 
     def test_camera_failure_never_launches_robot(self):
-        from piper_teleop.scripts.collect_trajectory_yam_local import main
+        from edith.scripts.collect_trajectory_yam_local import main
 
         with patch(
-            "piper_teleop.envs.yam_env.YAMLocalEnv",
+            "edith.envs.yam_env.YAMLocalEnv",
             side_effect=RuntimeError("camera unavailable"),
         ):
             with patch(
-                "piper_teleop.scripts.collect_trajectory_yam_local.subprocess.Popen"
+                "edith.scripts.collect_trajectory_yam_local.subprocess.Popen"
             ) as launch:
                 with self.assertRaisesRegex(RuntimeError, "camera unavailable"):
                     main(["--headless"])
@@ -381,7 +450,7 @@ class IntegrationTests(unittest.TestCase):
 
     def test_incomplete_leader_overrides_rejected(self):
         import json
-        from piper_teleop.local.abc_runtime import load_station
+        from edith.local.abc_runtime import load_station
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "leaders.json"

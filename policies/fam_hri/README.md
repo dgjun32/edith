@@ -4,9 +4,9 @@ See the [policy migration and usage guide](../README.md) for the observation,
 action, model-metadata and dependency requirements.
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/fam_hri --check-policy-only
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/fam_hri \
   --policy-config policies/fam_hri/presets/passing_tools.json \
   --duration 60 --headless

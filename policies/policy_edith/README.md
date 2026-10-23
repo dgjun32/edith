@@ -2,7 +2,7 @@
 
 This is the supported directory policy for
 `eval_openpi_ours_with_voice_260503.py`. The original filename now forwards to
-`piper_teleop/scripts/policy_edith.py`; it cannot start the old external Aria
+`edith/scripts/policy_edith.py`; it cannot start the old external Aria
 publisher or `PiperRobotEnv`. `policies/edith` is a compatibility symlink to
 this directory.
 
@@ -36,19 +36,19 @@ server installed:
 
 ```bash
 # Validate only; no inference, sensors or CAN.
-.venv/bin/python -m piper_teleop.scripts.policy_edith --check-policy-only
+.venv/bin/python -m edith.scripts.policy_edith --check-policy-only
 
 # Discover devices without opening sensor streams or commanding motors.
-.venv/bin/python -m piper_teleop.scripts.policy_edith --check --headless
+.venv/bin/python -m edith.scripts.policy_edith --check --headless
 
 # Local synchronized capture and inference, without CAN commands.
-.venv/bin/python -m piper_teleop.scripts.policy_edith \
+.venv/bin/python -m edith.scripts.policy_edith \
   --policy-config policies/policy_edith/presets/passing_tools.json \
   --duration 60 --headless
 ```
 
 Motor execution requires `--execute-actions`. The generic runner works too:
-`python -m piper_teleop.scripts.eval_policy_local --policy-dir policies/policy_edith`.
+`python -m edith.scripts.eval_policy_local --policy-dir policies/policy_edith`.
 The original filename accepts these same current flags; use `--help`.
 Legacy keyboard controls and experiment-specific MP4 options are not carried
 over; recording uses `--output`, and queue updates use `--policy-events-file`.

@@ -9,12 +9,12 @@ import unittest
 from unittest.mock import patch
 import numpy as np
 
-from piper_teleop.policy_utils import load_policy
-from piper_teleop.policy_utils.chunked import ChunkedPolicy
-from piper_teleop.policy_utils.keyframes import KeyframePolicy
-from piper_teleop.policy_utils.openpi import OpenPIClient, pack, unpack
-from piper_teleop.policy_utils.processing import gaze_crop, packet
-from piper_teleop.policy_utils.tasks import Frame, Task, TaskQueue
+from edith.policy_utils import load_policy
+from edith.policy_utils.chunked import ChunkedPolicy
+from edith.policy_utils.keyframes import KeyframePolicy
+from edith.policy_utils.openpi import OpenPIClient, pack, unpack
+from edith.policy_utils.processing import gaze_crop, packet
+from edith.policy_utils.tasks import Frame, Task, TaskQueue
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,7 +72,7 @@ def next_command(policy, obs):
 class DirectoryTests(unittest.TestCase):
     def test_all_policy_directories_load_without_network_or_hardware(self):
         with patch(
-            "piper_teleop.policy_utils.openpi.OpenPIClient._connect",
+            "edith.policy_utils.openpi.OpenPIClient._connect",
             side_effect=AssertionError("network"),
         ):
             for path in sorted((ROOT / "policies").glob("*/policy.json")):
@@ -90,7 +90,7 @@ class DirectoryTests(unittest.TestCase):
         policy.close()
 
     def test_loader_rejects_action_chunks(self):
-        from piper_teleop.policy_utils.loader import LoadedPolicy
+        from edith.policy_utils.loader import LoadedPolicy
         from types import SimpleNamespace
 
         policy = LoadedPolicy(
@@ -405,7 +405,7 @@ class WireTests(unittest.TestCase):
 
 class PlannerBackendTests(unittest.TestCase):
     def test_invalid_prompt_fails_before_creating_cloud_client(self):
-        from piper_teleop.policy_utils.planning import GeminiPlanner
+        from edith.policy_utils.planning import GeminiPlanner
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test-only-placeholder"}):
             with patch("google.genai.Client") as client:
@@ -418,7 +418,7 @@ class PlannerBackendTests(unittest.TestCase):
 
     def test_gemini_payload_uses_real_frame_timestamps_and_source_prompt(self):
         from types import SimpleNamespace
-        from piper_teleop.policy_utils.planning import GeminiPlanner
+        from edith.policy_utils.planning import GeminiPlanner
 
         calls = []
 
@@ -464,7 +464,7 @@ class PlannerBackendTests(unittest.TestCase):
 
     def test_fam_hri_external_api_receives_rgb_gaze_and_dwell(self):
         from types import SimpleNamespace
-        from piper_teleop.policy_utils.fam_hri import FamHRIPlanner
+        from edith.policy_utils.fam_hri import FamHRIPlanner
 
         received = []
 
@@ -484,7 +484,7 @@ class PlannerBackendTests(unittest.TestCase):
             process_utterance=process,
         )
         with patch(
-            "piper_teleop.policy_utils.fam_hri.importlib.import_module",
+            "edith.policy_utils.fam_hri.importlib.import_module",
             return_value=pipeline,
         ):
             planner = FamHRIPlanner({"llm_model": "test", "min_dwell_s": 0.5})
@@ -512,14 +512,14 @@ class PlannerBackendTests(unittest.TestCase):
 
 class RunnerTests(unittest.TestCase):
     def test_station_preflight_failure_closes_policy(self):
-        from piper_teleop.scripts.eval_policy_local import main
+        from edith.scripts.eval_policy_local import main
 
         policy = load_policy(ROOT / "policies/textvla")
         with patch(
-            "piper_teleop.scripts.eval_policy_local.load_policy", return_value=policy
+            "edith.scripts.eval_policy_local.load_policy", return_value=policy
         ):
             with patch(
-                "piper_teleop.scripts.eval_policy_local.load_station",
+                "edith.scripts.eval_policy_local.load_station",
                 side_effect=FileNotFoundError("station configuration"),
             ):
                 with self.assertRaises(FileNotFoundError):
@@ -528,10 +528,10 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(policy.instance.client.closed)
 
     def test_check_policy_only_never_discovers_devices(self):
-        from piper_teleop.scripts.eval_policy_local import main
+        from edith.scripts.eval_policy_local import main
 
         with patch(
-            "piper_teleop.scripts.eval_policy_local.load_station",
+            "edith.scripts.eval_policy_local.load_station",
             side_effect=AssertionError("station"),
         ):
             with patch("builtins.print"):
@@ -547,10 +547,10 @@ class RunnerTests(unittest.TestCase):
                 )
 
     def test_mismatched_output_rate_fails_before_devices(self):
-        from piper_teleop.scripts.eval_policy_local import main
+        from edith.scripts.eval_policy_local import main
 
         with patch(
-            "piper_teleop.scripts.eval_policy_local.load_station",
+            "edith.scripts.eval_policy_local.load_station",
             side_effect=AssertionError("station"),
         ):
             with self.assertRaisesRegex(ValueError, "match policy control_hz"):
@@ -565,7 +565,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_transcript_and_events_are_observation_inputs(self):
         from types import SimpleNamespace
-        from piper_teleop.scripts.eval_policy_local import _add_policy_inputs
+        from edith.scripts.eval_policy_local import _add_policy_inputs
 
         with tempfile.TemporaryDirectory() as tmp:
             text = Path(tmp) / "utterance.txt"

@@ -8,11 +8,11 @@ from unittest.mock import patch
 
 import numpy as np
 
-from piper_teleop.eval_utils.environment import RobotEvaluationEnv
-from piper_teleop.eval_utils.observation import build_observation
-from piper_teleop.local.sync import Sample
-from piper_teleop.policy_utils import load_policy
-from piper_teleop.robot_utils.abc_yam import ConfiguredNoOpRobot
+from edith.eval_utils.environment import RobotEvaluationEnv
+from edith.eval_utils.observation import build_observation
+from edith.local.sync import Sample
+from edith.policy_utils import load_policy
+from edith.robot_utils.abc_yam import ConfiguredNoOpRobot
 
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -97,8 +97,12 @@ class AdapterContractTests(unittest.TestCase):
         bundle["hand_pose"] = Sample(
             100, 101, 99, 6, np.arange(4), "test", ("a", "b", "c", "d")
         )
+        pcm = np.ones((800, 2), np.int32)
+        bundle["audio"] = Sample(100, 101, 99, 800, pcm, "test")
 
         class Aria:
+            audio = SimpleNamespace(sample_rate_hz=48_000)
+
             @staticmethod
             def project_perception_to_rgb(eye_gaze, hand_pose):
                 del eye_gaze, hand_pose
@@ -136,6 +140,9 @@ class AdapterContractTests(unittest.TestCase):
         np.testing.assert_array_equal(observation["gaze_point"], [1.0, 2.0])
         self.assertEqual(observation["hand_keypoints"]["left"].shape, (21, 2))
         self.assertTrue(np.isnan(observation["hand_keypoints"]["right"]).all())
+        np.testing.assert_array_equal(observation["audio"]["samples"], pcm)
+        self.assertEqual(observation["audio"]["sample_rate_hz"], 48_000)
+        self.assertEqual(observation["audio"]["end_timestamp_ns"], 100)
         self.assertEqual(
             set(observation["robot_state"]),
             {
@@ -158,14 +165,14 @@ class AdapterContractTests(unittest.TestCase):
 
 class StartupSafetyTests(unittest.TestCase):
     def test_sensor_failure_prevents_robot_construction(self):
-        from piper_teleop.scripts.eval_policy_local import main
+        from edith.scripts.eval_policy_local import main
 
         with patch(
-            "piper_teleop.envs.yam_env.YAMLocalEnv",
+            "edith.envs.yam_env.YAMLocalEnv",
             side_effect=RuntimeError("aria unavailable"),
         ):
             with patch(
-                "piper_teleop.scripts.eval_policy_local.create_robot"
+                "edith.scripts.eval_policy_local.create_robot"
             ) as create_robot:
                 with self.assertRaisesRegex(RuntimeError, "aria unavailable"):
                     main(

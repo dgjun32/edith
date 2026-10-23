@@ -4,9 +4,9 @@ See the [policy migration and usage guide](../README.md) for the observation,
 action, model-metadata and dependency requirements.
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/streamvla --check-policy-only
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/streamvla \
   --policy-config policies/streamvla/presets/passing_tools.json \
   --duration 60 --headless

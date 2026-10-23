@@ -23,7 +23,7 @@ opens no inference connection, camera, CAN interface or cloud session. Gemini
 planning and the external FAM-HRI pipeline are explicit options.
 
 The canonical Edith directory is `policy_edith`; `edith` is a compatibility
-symlink to it. Run it with `python -m piper_teleop.scripts.policy_edith`.
+symlink to it. Run it with `python -m edith.scripts.policy_edith`.
 The old `eval_openpi_ours_with_voice_260503.py` filename now launches this same
 local runtime. It no longer imports the remote Aria camera or Piper environment.
 
@@ -39,7 +39,7 @@ From the repository root:
 
 ```bash
 uv pip install --python .venv/bin/python -e '.[policies]'
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/streamvla --check-policy-only
 .venv/bin/python -m unittest discover -s tests -v
 ```
@@ -50,7 +50,7 @@ wire protocol through a finite-timeout WebSocket client, compatible with NumPy 2
 No change to the station's ABC environment is needed.
 
 Each folder contains `policy.json`, `policy.py`, presets and policy-specific
-prompt assets. Shared runner-side code under `piper_teleop/policy_utils` supplies
+prompt assets. Shared runner-side code under `edith/policy_utils` supplies
 transport, RGB preprocessing, chunk execution and queue validation. Install
 Edith on the destination host; copy the policy folder and its own assets there.
 Relative imports inside `policy.py` are isolated per policy, so two directories
@@ -98,7 +98,7 @@ and calibrated pixels. Invalid gaze falls back to the full image by default;
 
 ```bash
 # Live camera/inference evaluation; no CAN unless --execute-actions is passed.
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/streamvla \
   --policy-config policies/streamvla/presets/passing_tools.json \
   --headless --duration 60
@@ -122,15 +122,15 @@ so synchronized observations and planner buffering keep running.
 Voice variants now consume a transcript through the policy observation:
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/textvla --transcript-file /tmp/edith-transcript.txt \
   --duration 60 --headless
 ```
 
 Create the UTF-8 file first. A local STT/UI process may atomically replace it
-with the latest complete utterance. These adapters **do not start microphone
-capture or Whisper themselves**; the Gen 2 sensor stack still does not expose
-live PCM to directory policies. Preset language requires neither STT nor an
+with the latest complete utterance. These adapters **do not transcribe
+speech themselves**. Live microphone PCM is available as `obs["audio"]`, but
+no adapter consumes it yet. Preset language requires neither STT nor an
 online speech service. Repeated unchanged text is not treated as a new spoken
 intervention in successive planner updates.
 
@@ -167,7 +167,7 @@ Save the object above to a local model settings file, then layer it after the
 preset:
 
 ```bash
-.venv/bin/python -m piper_teleop.scripts.eval_policy_local \
+.venv/bin/python -m edith.scripts.eval_policy_local \
   --policy-dir policies/policy_edith \
   --policy-config policies/policy_edith/presets/gemini_passing_tools.json \
   --policy-config /path/to/model-settings.json \
