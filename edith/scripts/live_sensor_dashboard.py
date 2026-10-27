@@ -14,7 +14,7 @@ import numpy as np
 
 from edith.aria_utils import AriaGen2Camera, draw_perception_bgr
 from edith.local.sources import RealSenseSource
-from edith.robot_utils.abc_config import DEFAULT_ABC_ROOT, load_station
+from edith.config import load_station
 
 
 class LatestSamples:
@@ -177,8 +177,11 @@ def _tile(name, sample, status="", projection=None):
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--abc-root", type=Path, default=DEFAULT_ABC_ROOT)
-    p.add_argument("--profile", default="abc_station_config")
+    p.add_argument(
+        "--station",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "configs/station.example.json",
+    )
     p.add_argument("--aria-serial", default="")
     p.add_argument(
         "--aria-ip",
@@ -197,7 +200,7 @@ def main(argv=None):
     args = parser().parse_args(argv)
     if args.aria_retry_seconds <= 0 or args.duration < 0:
         raise ValueError("Retry interval must be positive and duration nonnegative")
-    config = load_station(args.abc_root, args.profile)
+    config = load_station(args.station)
     sink = LatestSamples()
     cameras = []
     aria = None
@@ -211,8 +214,8 @@ def main(argv=None):
             args.aria_profile,
             args.aria_retry_seconds,
         )
-        cv2.namedWindow("Aria Gen 2 + YAM cameras", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Aria Gen 2 + YAM cameras", 1280, 900)
+        cv2.namedWindow("Aria Gen 2 + robot cameras", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Aria Gen 2 + robot cameras", 1280, 900)
         started = time.perf_counter()
         order = ("aria", *config.cameras)
         while not args.duration or time.perf_counter() - started < args.duration:
@@ -245,7 +248,7 @@ def main(argv=None):
                 2,
                 cv2.LINE_AA,
             )
-            cv2.imshow("Aria Gen 2 + YAM cameras", dashboard)
+            cv2.imshow("Aria Gen 2 + robot cameras", dashboard)
             if cv2.waitKey(10) & 0xFF in (ord("q"), 27):
                 break
     except KeyboardInterrupt:

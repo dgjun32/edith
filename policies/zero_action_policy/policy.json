@@ -1,0 +1,9 @@
+{
+  "schema": "edith.policy.v1",
+  "name": "zero_action_policy",
+  "entrypoint": "policy.py:Policy",
+  "control_hz": 15,
+  "action_space": "joint_position",
+  "observe_only": true,
+  "config": {}
+}

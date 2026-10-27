@@ -1,4 +1,4 @@
-# Polished policies for the local Gen 2 / YAM runner
+# Policies for the local Gen 2 runner
 
 These adapters were derived from the supplied `aria_eval_scripts_refactored`
 folder, not another GitHub branch. They separate inference from camera capture,
@@ -15,7 +15,8 @@ hash and destination for every top-level source script.
 | `policy_edith` | `eval_openpi_ours*`, keyframe/egoview ablations | Same plus a queued visual keyframe and subtask text |
 | `vlm_textvla` | `eval_openpi_vlm_textvla*`, `0915_finetext` | Robot views/state and planner-generated subtask text; top camera for planning |
 | `fam_hri` | `eval_fam_hri*`, `eval_famhri_before` | Visual-keyframe VLA with optional local FAM-HRI grounding/planning |
-| `static_hold` | Existing hardware smoke policy | Hold the startup joint state |
+| `static_hold` | Generic hardware smoke policy | Hold the startup joint state |
+| `zero_action_policy` | Generic observation diagnostic | Zero vector of any state dimension; motor execution forbidden |
 
 All five migrated policies default to **manual/preset language**, a local
 OpenPI server at `ws://127.0.0.1:8000`, and 15 Hz. Merely loading a default policy
@@ -44,10 +45,10 @@ uv pip install --python .venv/bin/python -e '.[policies]'
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-`openpi-client==0.1.2` pins NumPy below 2, conflicting with the installed i2rt
-requirement (`numpy==2.2.6`). The adapter instead uses the OpenPI MessagePack
-wire protocol through a finite-timeout WebSocket client, compatible with NumPy 2.
-No change to the station's ABC environment is needed.
+The OpenPI adapter uses the MessagePack wire protocol through a finite-timeout
+WebSocket client, compatible with NumPy 2. Core capture and diagnostics require
+no robot SDK. Select a separate robot repository through the station JSON
+`robot.adapter` factory; see [the main README](../README.md).
 
 Each folder contains `policy.json`, `policy.py`, presets and policy-specific
 prompt assets. Shared runner-side code under `edith/policy_utils` supplies
@@ -81,8 +82,10 @@ checkpoint's behavior. A returned chunk must have shape `(T,14)`:
 
 `left joint1..joint6 (rad), left gripper, right joint1..joint6 (rad), right gripper`.
 
-The generic policy interface returns **one `(14,)` action per `act()`**, not a
-chunk. The adapter buffers up to `chunk_size` server actions and consumes one
+The generic policy interface returns one `(D,)` action per `act()`, matching
+the selected robot. These five learned clients specifically return **14 YAM
+values**, not an action chunk. Replacing a robot adapter does not convert their
+checkpoint contract. The adapter buffers up to `chunk_size` server actions and consumes one
 per synchronized observation. Pending inference holds the last target. New
 instructions, reset, preemption or replacement invalidate earlier actions.
 An exhausted task queue holds; it never homes or resets a robot.
@@ -99,6 +102,7 @@ and calibrated pixels. Invalid gaze falls back to the full image by default;
 ```bash
 # Live camera/inference evaluation; no CAN unless --execute-actions is passed.
 .venv/bin/python -m edith.scripts.eval_policy_local \
+  --station configs/station.local.json \
   --policy-dir policies/streamvla \
   --policy-config policies/streamvla/presets/passing_tools.json \
   --headless --duration 60
@@ -123,6 +127,7 @@ Voice variants now consume a transcript through the policy observation:
 
 ```bash
 .venv/bin/python -m edith.scripts.eval_policy_local \
+  --station configs/station.local.json \
   --policy-dir policies/textvla --transcript-file /tmp/edith-transcript.txt \
   --duration 60 --headless
 ```
@@ -130,7 +135,11 @@ Voice variants now consume a transcript through the policy observation:
 Create the UTF-8 file first. A local STT/UI process may atomically replace it
 with the latest complete utterance. These adapters **do not transcribe
 speech themselves**. Live microphone PCM is available as `obs["audio"]`, but
-no adapter consumes it yet. Preset language requires neither STT nor an
+the learned clients do not transcribe or forward it to the VLA server.
+`audio.samples` holds int32 `(frames, channels)` PCM with the actual
+`sample_rate_hz`, per-frame host/device timestamps, mute flags and amplitude
+scale. The [zero-action diagnostic](zero_action_policy/README.md) records this
+input alongside the camera/perception/state observations and outputs. Preset language requires neither STT nor an
 online speech service. Repeated unchanged text is not treated as a new spoken
 intervention in successive planner updates.
 
@@ -168,6 +177,7 @@ preset:
 
 ```bash
 .venv/bin/python -m edith.scripts.eval_policy_local \
+  --station configs/station.local.json \
   --policy-dir policies/policy_edith \
   --policy-config policies/policy_edith/presets/gemini_passing_tools.json \
   --policy-config /path/to/model-settings.json \

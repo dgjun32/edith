@@ -15,6 +15,7 @@ class Sample:
     data: object
     clock: str
     fields: tuple[str, ...] = ()
+    metadata: dict | None = None
 
 
 class Synchronizer:
@@ -32,11 +33,7 @@ class Synchronizer:
         anchor = anchor or names[0]
         if anchor not in names:
             raise ValueError(f"Anchor {anchor!r} is not a configured stream")
-        if (
-            not 0 < tolerance_ms <= max_age_ms
-            or capacity < 2
-            or anchor_stride < 1
-        ):
+        if not 0 < tolerance_ms <= max_age_ms or capacity < 2 or anchor_stride < 1:
             raise ValueError("Require 0 < tolerance <= max age and capacity >= 2")
         self.buffers = {name: deque(maxlen=capacity) for name in names}
         self.anchor = anchor
@@ -79,8 +76,7 @@ class Synchronizer:
                 continue
             if (
                 self.last_anchor_sequence is not None
-                and anchor.sequence
-                < self.last_anchor_sequence + self.anchor_stride
+                and anchor.sequence < self.last_anchor_sequence + self.anchor_stride
             ):
                 continue
             selected = {self.anchor: anchor}

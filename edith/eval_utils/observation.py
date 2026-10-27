@@ -55,7 +55,7 @@ def build_observation(
     """Build the stable observation contract consumed by local policies.
 
     Images, Aria perception and microphone audio originate from the same
-    accepted bundle. Robot state uses synchronized ABC samples when present
+    accepted bundle. Robot state uses synchronized adapter samples when present
     and otherwise falls back to the provided startup snapshot (the
     static/no-CAN evaluation path).
     """
@@ -107,6 +107,7 @@ def build_observation(
         observation["audio"] = {
             "samples": bundle["audio"].data,
             "sample_rate_hz": audio_sample_rate_hz,
+            **(bundle["audio"].metadata or {}),
             "end_timestamp_ns": int(bundle["audio"].timestamp_ns),
         }
     return observation

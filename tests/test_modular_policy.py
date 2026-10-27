@@ -168,12 +168,10 @@ class StartupSafetyTests(unittest.TestCase):
         from edith.scripts.eval_policy_local import main
 
         with patch(
-            "edith.envs.yam_env.YAMLocalEnv",
+            "edith.envs.local_env.LocalSensorEnv",
             side_effect=RuntimeError("aria unavailable"),
         ):
-            with patch(
-                "edith.scripts.eval_policy_local.create_robot"
-            ) as create_robot:
+            with patch("edith.scripts.eval_policy_local.create_robot") as create_robot:
                 with self.assertRaisesRegex(RuntimeError, "aria unavailable"):
                     main(
                         [

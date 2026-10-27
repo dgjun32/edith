@@ -1,6 +1,5 @@
 """Aria Gen 2 USB-NCM capture and read-only discovery helpers."""
 
-from collections import deque
 from dataclasses import dataclass
 import math
 import subprocess
@@ -11,6 +10,7 @@ import time
 import numpy as np
 
 from edith.eval_utils.sync import Sample
+from .audio import AUDIO_SAMPLE_RATE_HZ, AudioBuffer  # noqa: F401
 
 
 EYE_GAZE_FIELDS = (
@@ -81,9 +81,7 @@ def _hand_fields():
     for side in ("left", "right"):
         fields.extend((f"{side}_present", f"{side}_confidence"))
         for landmark in HAND_LANDMARK_NAMES:
-            fields.extend(
-                f"{side}_{landmark}_{axis}_m" for axis in ("x", "y", "z")
-            )
+            fields.extend(f"{side}_{landmark}_{axis}_m" for axis in ("x", "y", "z"))
         fields.extend(
             (
                 f"{side}_wrist_qw",
@@ -107,84 +105,6 @@ def _hand_fields():
 HAND_POSE_FIELDS = _hand_fields()
 EYE_GAZE_INDEX = {name: index for index, name in enumerate(EYE_GAZE_FIELDS)}
 HAND_POSE_INDEX = {name: index for index, name in enumerate(HAND_POSE_FIELDS)}
-# Nominal Aria microphone rate; replaced by the rate measured from device
-# capture timestamps once the first multi-frame audio block arrives.
-AUDIO_SAMPLE_RATE_HZ = 48_000
-
-
-class AudioBuffer:
-    """Microphone frames waiting for the next synchronized bundle.
-
-    Audio is continuous, so it is not nearest-sample matched like images:
-    each bundle takes every unread frame captured up to its anchor time.
-    Frames are handed out once and never reordered.
-    """
-
-    def __init__(self, max_seconds=5.0):
-        self.lock = threading.Lock()
-        self.chunks = deque()
-        self.max_frames = round(max_seconds * AUDIO_SAMPLE_RATE_HZ)
-        self.sample_rate_hz = AUDIO_SAMPLE_RATE_HZ
-        self.channels = 0
-        self.buffered = self.delivered = self.dropped = 0
-
-    def add(self, host_ns, source_ns, received_ns, samples):
-        with self.lock:
-            if self.channels and samples.shape[1] != self.channels:
-                raise ValueError(
-                    f"Aria audio channel count changed: {self.channels} -> "
-                    f"{samples.shape[1]}"
-                )
-            self.channels = samples.shape[1]
-            if len(source_ns) > 1 and source_ns[-1] > source_ns[0]:
-                rate = (len(source_ns) - 1) * 1e9 / (source_ns[-1] - source_ns[0])
-                self.sample_rate_hz = int(round(rate, -2))
-            self.chunks.append((host_ns, source_ns, received_ns, samples))
-            self.buffered += len(samples)
-            # Bound memory when no consumer is taking audio (e.g. the dashboard).
-            while self.buffered > self.max_frames and len(self.chunks) > 1:
-                dropped = len(self.chunks.popleft()[3])
-                self.buffered -= dropped
-                self.dropped += dropped
-
-    def take(self, until_ns) -> Sample:
-        """Return every unread frame captured at or before ``until_ns``.
-
-        ``data`` is ``(frames, channels)`` int32 PCM and ``timestamp_ns`` is
-        the host capture time of the last frame. ``sequence`` counts stream
-        frames consumed so far, so a jump larger than ``frames`` marks a drop.
-        """
-
-        parts = []
-        last = None
-        with self.lock:
-            while self.chunks:
-                host_ns, source_ns, received_ns, samples = self.chunks[0]
-                count = int(np.searchsorted(host_ns, until_ns, side="right"))
-                if count == 0:
-                    break
-                parts.append(samples[:count])
-                last = (int(host_ns[count - 1]), received_ns, int(source_ns[count - 1]))
-                if count < len(samples):
-                    self.chunks[0] = (
-                        host_ns[count:],
-                        source_ns[count:],
-                        received_ns,
-                        samples[count:],
-                    )
-                    break
-                self.chunks.popleft()
-            taken = sum(len(part) for part in parts)
-            self.buffered -= taken
-            self.delivered += taken
-            sequence = self.delivered + self.dropped
-            channels = self.channels or 1
-        data = (
-            np.concatenate(parts) if parts else np.zeros((0, channels), np.int32)
-        )
-        if last is None:
-            last = (int(until_ns), int(until_ns), 0)
-        return Sample(*last, sequence, data, "aria_ticsync_capture")
 
 
 @dataclass(frozen=True)
@@ -211,6 +131,7 @@ class AriaGen2Camera:
         self.sink = sink
         self.client = self.device = self.receiver = None
         self.started = False
+        self.capture_lock = threading.Lock()
         self.sequences = {"aria": 0, "eye_gaze": 0, "hand_pose": 0}
         self.audio = AudioBuffer()
         self.calibration_lock = threading.Lock()
@@ -229,7 +150,9 @@ class AriaGen2Camera:
                 # fallback to Wi-Fi or to the former external Aria publisher.
                 targets = self.client.usb_network_devices()
                 targets = [
-                    target for target in targets if not serial or target.serial == serial
+                    target
+                    for target in targets
+                    if not serial or target.serial == serial
                 ]
                 if len(targets) != 1:
                     raise RuntimeError(
@@ -275,11 +198,15 @@ class AriaGen2Camera:
     def _capture_to_host(self, source_ns):
         """Return ``(host capture ns, host receive ns)``, or None until TicSync is valid."""
 
-        sync = self.receiver.get_time_sync()
-        if sync is None or not sync.is_connected() or not sync.is_valid():
-            return None
-        latency_ms = sync.compute_latency_ms(source_ns)
-        received_ns = time.perf_counter_ns()
+        # Native TicSync must not be read concurrently with device shutdown.
+        with self.capture_lock:
+            if not self.started or self.receiver is None:
+                return None
+            sync = self.receiver.get_time_sync()
+            if sync is None or not sync.is_connected() or not sync.is_valid():
+                return None
+            latency_ms = sync.compute_latency_ms(source_ns)
+            received_ns = time.perf_counter_ns()
         if not math.isfinite(latency_ms) or latency_ms < 0:
             return None
         return received_ns - round(latency_ms * 1e6), received_ns
@@ -419,7 +346,12 @@ class AriaGen2Camera:
                 source_ns - source_ns[-1] + host_end_ns,
                 source_ns,
                 received_ns,
-                samples.reshape(-1, channels),
+                # SDK delivers contiguous channel blocks, as in its audio viewer.
+                samples.reshape(channels, -1).T.copy(),
+                muted=bool(getattr(record, "audio_muted", False)),
+                max_amplitude=float(
+                    getattr(audio_data, "max_amplitude", np.iinfo(np.int32).max)
+                ),
             )
         except Exception as error:
             self.sink.fail(error)
@@ -446,9 +378,7 @@ class AriaGen2Camera:
             return empty
         try:
             camera = calibration.get_camera_calib("camera-rgb")
-            transform_camera_device = (
-                camera.get_transform_device_camera().inverse()
-            )
+            transform_camera_device = camera.get_transform_device_camera().inverse()
             result = dict(empty)
             if eye_gaze[EYE_GAZE_INDEX["spatial_gaze_point_valid"]]:
                 point_cpf = np.asarray(
@@ -470,9 +400,7 @@ class AriaGen2Camera:
                 for landmark in HAND_LANDMARK_NAMES:
                     point_device = np.asarray(
                         [
-                            hand_pose[
-                                HAND_POSE_INDEX[f"{side}_{landmark}_{axis}_m"]
-                            ]
+                            hand_pose[HAND_POSE_INDEX[f"{side}_{landmark}_{axis}_m"]]
                             for axis in ("x", "y", "z")
                         ],
                         dtype=np.float64,
@@ -491,8 +419,10 @@ class AriaGen2Camera:
 
     def close(self):
         try:
-            if self.started:
+            with self.capture_lock:
+                was_started = self.started
                 self.started = False
+            if was_started:
                 self.device.stop_streaming()
                 # Gen 2 can still deliver queued MP/RGB callbacks briefly after
                 # stop_streaming(). Draining them before destroying the HTTP

@@ -39,3 +39,6 @@ temp/
 build/
 dist/
 *.egg-info/
+
+# Per-machine robot/camera configuration and verification media
+configs/*.local.json

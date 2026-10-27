@@ -1,0 +1,10 @@
+{
+  "schema": "edith.station.v1",
+  "cameras": {
+    "top": {"serial": "TOP_CAMERA_USB_SERIAL", "width": 640, "height": 480, "fps": 30},
+    "left": {"serial": "LEFT_WRIST_USB_SERIAL", "width": 640, "height": 480, "fps": 30},
+    "right": {"serial": "RIGHT_WRIST_USB_SERIAL", "width": 640, "height": 480, "fps": 30}
+  },
+  "initial_state": {"left": [0, 0, 0, 0, 0, 0, 0], "right": [0, 0, 0, 0, 0, 0, 0]},
+  "robot": {"adapter": "none", "config": {}}
+}

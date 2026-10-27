@@ -3,27 +3,27 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "edith-aria-yam"
+name = "edith-aria"
 version = "0.1.0"
-description = "Synchronized Project Aria Gen 2 and YAM robot data collection/evaluation"
+description = "Robot-independent Project Aria Gen 2 observation, policy and recording layer"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "projectaria-client-sdk==2.5.0",
   "numpy>=1.26",
   "opencv-python>=4.8",
-  "pyrealsense2>=2.55",
-  "pyzmq>=25",
   "h5py>=3.10",
-  "tyro>=0.8",
-  "dynamixel-sdk>=3.7",
 ]
 
 [project.optional-dependencies]
+aria = ["projectaria-client-sdk==2.5.0"]
+realsense = ["pyrealsense2>=2.55"]
+yam = ["pyzmq>=25", "tyro>=0.8", "dynamixel-sdk>=3.7"]
+replay = ["imageio-ffmpeg>=0.5"]
 policies = ["msgpack>=1.0", "websockets>=14", "google-genai>=2.31,<3"]
 
 [project.scripts]
-edith-collect = "edith.scripts.collect_trajectory_yam_local:main"
+edith-collect = "edith.scripts.collect_observations:main"
+edith-replay = "edith.scripts.replay_observations:main"
 edith-eval = "edith.scripts.eval_policy_local:main"
 edith-dashboard = "edith.scripts.live_sensor_dashboard:main"
 

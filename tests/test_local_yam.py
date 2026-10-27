@@ -1,6 +1,7 @@
 """Hardware-free synchronization, SDK callback, IPC and recording contracts."""
 
 import tempfile
+import os
 import threading
 import time
 import unittest
@@ -117,6 +118,8 @@ class AriaTests(unittest.TestCase):
 
     def camera(self, valid=True):
         camera = AriaGen2Camera.__new__(AriaGen2Camera)
+        camera.started = True
+        camera.capture_lock = threading.Lock()
         camera.sequences = {"aria": 0, "eye_gaze": 0, "hand_pose": 0}
         camera.sink = Synchronizer(["aria", "eye_gaze", "hand_pose"])
         clock = SimpleNamespace(
@@ -152,7 +155,7 @@ class AriaTests(unittest.TestCase):
             return_value=1_000_000_000,
         ):
             camera._audio(
-                SimpleNamespace(data=frames.reshape(-1).tolist()),
+                SimpleNamespace(data=frames.T.reshape(-1).tolist()),
                 SimpleNamespace(capture_timestamps_ns=[i * step for i in range(4)]),
                 2,
             )
@@ -174,9 +177,9 @@ class AriaTests(unittest.TestCase):
 
         audio = AudioBuffer(max_seconds=2 / 48_000)
         for start in (0, 2, 4):
-            times = np.array([start, start + 1], dtype=np.int64)
+            times = np.array([start, start + 1], dtype=np.int64) * 20_833
             audio.add(times, times, start, np.full((2, 1), start, np.int32))
-        taken = audio.take(10)
+        taken = audio.take(10 * 20_833)
         np.testing.assert_array_equal(taken.data[:, 0], [4, 4])
         self.assertEqual(taken.sequence, 6)
 
@@ -347,6 +350,65 @@ class AriaTests(unittest.TestCase):
             camera.close()
         self.assertEqual(calls, ["device", "receiver", "disconnect"])
 
+    def test_shutdown_drops_late_callbacks_before_reading_native_clock(self):
+        camera = self.camera()
+
+        def invalid_clock():
+            self.fail("A callback accessed the native clock after stopping began")
+
+        camera.receiver = SimpleNamespace(
+            get_time_sync=invalid_clock, stop_server=lambda: None
+        )
+        camera.device = SimpleNamespace(
+            stop_streaming=lambda: camera._mapped_sample("aria", 1, np.zeros(3))
+        )
+        camera.client = SimpleNamespace(disconnect=lambda d: None)
+        with patch("edith.aria_utils.gen2.time.sleep"):
+            camera.close()
+        self.assertFalse(camera.sink.buffers["aria"])
+
+    def test_shutdown_waits_for_inflight_native_clock_read(self):
+        camera = self.camera()
+        reading, release, stopped = (
+            threading.Event(),
+            threading.Event(),
+            threading.Event(),
+        )
+
+        def latency(_):
+            reading.set()
+            release.wait(2)
+            return 25
+
+        clock = SimpleNamespace(
+            is_connected=lambda: True,
+            is_valid=lambda: True,
+            compute_latency_ms=latency,
+        )
+        camera.receiver = SimpleNamespace(
+            get_time_sync=lambda: clock, stop_server=lambda: None
+        )
+        camera.device = SimpleNamespace(stop_streaming=stopped.set)
+        camera.client = SimpleNamespace(disconnect=lambda d: None)
+        callback = threading.Thread(
+            target=camera._mapped_sample, args=("aria", 1, np.zeros(3))
+        )
+        closing = threading.Thread(target=camera.close)
+        with patch("edith.aria_utils.gen2.time.sleep"):
+            callback.start()
+            try:
+                self.assertTrue(reading.wait(1))
+                closing.start()
+                self.assertFalse(stopped.wait(0.05))
+            finally:
+                release.set()
+                callback.join(2)
+                if closing.ident is not None:
+                    closing.join(2)
+        self.assertFalse(callback.is_alive())
+        self.assertFalse(closing.is_alive())
+        self.assertTrue(stopped.is_set())
+
 
 class RecordTests(unittest.TestCase):
     def test_roundtrip_rgb_states_and_timestamps(self):
@@ -397,12 +459,14 @@ class RecordTests(unittest.TestCase):
             writer.close()
             with h5py.File(path) as f:
                 self.assertEqual(f["audio"].attrs["num_channels"], 2)
-                np.testing.assert_array_equal(
-                    f["audio/pcm"][0].reshape(-1, 2), pcm
-                )
+                np.testing.assert_array_equal(f["audio/pcm"][0].reshape(-1, 2), pcm)
                 self.assertEqual(f["audio/pcm"][1].size, 0)
 
 
+@unittest.skipUnless(
+    os.environ.get("EDITH_TEST_ABC") == "1",
+    "Optional ABC integration: set EDITH_TEST_ABC=1 in the ABC environment",
+)
 class IntegrationTests(unittest.TestCase):
     def test_actual_abc_ipc_wire_format(self):
         import uuid

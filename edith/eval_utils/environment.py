@@ -94,6 +94,6 @@ class RobotEvaluationEnv:
 
     def safe_end(self) -> None:
         try:
-            self.robot.close()
-        finally:
             self.sensors.safe_end()
+        finally:
+            self.robot.close()

@@ -46,37 +46,51 @@ by smart glasses, instead of requiring a fully specified instruction.
 
 ## 1. Setup
 
-Requires Python 3.11 and the station's ABC/i2rt checkout for the YAM arms.
+Edith is an observation, policy, and recording layer above the robot repository.
+Core capture has **no i2rt, ABC, or Piper SDK dependency**. Aria Gen 2 connects
+by USB-NCM directly to this computer; robot cameras also connect locally.
+USB-NCM carries IP traffic over the cable, so no Wi-Fi or external Aria server
+is needed. Optional remote model services can still require network access.
+
+Use Python 3.11 for the Gen 2 SDK:
 
 ```bash
 uv venv .venv --python 3.11
-uv pip install --python .venv/bin/python -r requirements-local-yam.txt
-uv pip install --python .venv/bin/python -e /path/to/abc-robot-setting/i2rt
-uv pip install --python .venv/bin/python -e '.[policies]'
-
-aria_gen2 auth pair                                                             # once, to pair the glasses
-.venv/bin/python -m edith.scripts.eval_policy_local --check --headless   # device check
-.venv/bin/python -m edith.scripts.live_sensor_dashboard                  # live view
+uv pip install --python .venv/bin/python -e '.[aria,realsense,policies,replay]'
+source .venv/bin/activate
+aria_gen2 auth pair                  # one-time SDK pairing
+cp configs/station.example.json configs/station.local.json
 ```
 
-Station setup and safety notes: [README_LOCAL_YAM.md](README_LOCAL_YAM.md).
+Edit the local station file with your RealSense serial numbers and joint groups.
+`initial_state` supplies diagnostic state when motors are disabled; its JSON
+key order defines the action vector order. Local station files are ignored by
+Git. The default `robot.adapter: "none"` never initializes a robot controller.
+At least one RealSense camera is required; `--sync-camera top` selects the
+anchor. Use another configured camera name when appropriate.
+
+```bash
+edith-eval --station configs/station.local.json --check --headless
+edith-dashboard --station configs/station.local.json
+```
+
+Do not run another program that owns the Aria stream or these cameras during
+capture. The runner owns USB discovery, streaming, and shutdown. Optional
+ABC/YAM control and GELLO teleoperation: [README_LOCAL_YAM.md](README_LOCAL_YAM.md).
 
 ## 2. The environment
 
-A bimanual YAM robot and Project Aria Gen 2 glasses, both on one computer (the
-glasses connect over USB). One call returns a single time-synced observation:
-
 ```python
-from edith.envs.yam_env import YAMLocalEnv
+from edith.config import load_station
+from edith.envs.local_env import LocalSensorEnv
 from edith.eval_utils import RobotEvaluationEnv
-from edith.robot_utils.abc_config import load_station
-from edith.robot_utils.abc_yam import ConfiguredNoOpRobot
+from edith.robot_utils.noop import ConfiguredNoOpRobot
 
-config = load_station()              # ABC station config (default ~/dev/abc-robot-setting/abc; pass a path otherwise)
-sensors = YAMLocalEnv(config)        # starts the 3 RealSense cameras and the Aria glasses
-robot = ConfiguredNoOpRobot(config)  # never opens CAN or moves the arms
+config = load_station("configs/station.local.json")
+sensors = LocalSensorEnv(config)
+robot = ConfiguredNoOpRobot(config)  # no robot SDK or motor connection
+robot.start()
 env = RobotEvaluationEnv(sensors, robot, robot.read(0))
-
 try:
     obs = env.get_policy_observation()
 finally:
@@ -85,75 +99,136 @@ finally:
 
 | Key | Shape | Contents |
 | --- | --- | --- |
-| `images["aria_rgb"]` | `(H, W, 3)` | Human's first-person view |
-| `gaze_point` | `(2,)` | Gaze pixel in `aria_rgb` (NaN if invalid) |
-| `hand_keypoints["left" / "right"]` | `(21, 2)` | Hand landmarks in `aria_rgb` |
-| `audio["samples"]` | `(N, C)` int32 | Glasses microphone, all audio since the previous observation (48 kHz) |
-| `aria_perception` | dict | Raw eye-gaze (35) and hand-pose (156) values with field names |
-| `images["top_camera_rgb" / "left_wrist_camera_rgb" / "right_wrist_camera_rgb"]` | `(H, W, 3)` | Robot cameras |
-| `robot_state` | `(14,)` | Per arm: 6 joints (rad) + gripper |
-| `capture_timestamps_ns` | dict | Capture time of each stream |
+| `images["aria_rgb"]` | `(H, W, 3)` uint8 RGB | Glasses view |
+| `gaze_point` | `(2,)` | Calibrated gaze pixel; NaN when invalid |
+| `hand_keypoints["left" / "right"]` | `(21, 2)` | Projected hand landmarks; NaN when unavailable |
+| `audio["samples"]` | `(N, C)` int32 | All available microphone frames since the previous observation, through the anchor time |
+| `audio["sample_rate_hz"]` | integer | Actual rate derived from capture timestamps, not a fixed 48 kHz assumption |
+| `audio["capture_timestamps_ns" / "source_timestamps_ns"]` | `(N,)` | Host-mapped / device capture time for each audio frame |
+| `audio["muted"]` | `(N,)` | Device microphone mute flags |
+| `aria_perception` | dict | Named raw eye-gaze (35) and hand-pose (156) values |
+| `images["top_camera_rgb" / "left_wrist_camera_rgb" / "right_wrist_camera_rgb"]` | `(H, W, 3)` | Default station views; custom cameras use `<name>_rgb` |
+| `robot_state` | `(D,)` | Joint groups flattened in station order |
+| `robot_state_by_arm`, `arm_order` | dict, tuple | Original groups and their order (names need not be left/right) |
+| `capture_timestamps_ns`, `source_timestamps_ns`, `sequence_numbers` | dict | Timing evidence for every stream |
 
-All streams share one clock and are aligned within 100 ms at 15 Hz (software
-sync, not a hardware trigger). Speech-to-text isn't built in: pass text with
-`--transcript-file` and it appears as `obs["transcript"]`.
+Audio preserves all channels, the SDK amplitude scale (`max_amplitude`), and
+`dropped_samples`. The tested Gen 2 profile delivered 8 channels at 16 kHz.
+Empty intervals have zero frames; they are not invented silence. Replay inserts
+silence at timestamp gaps. Audio reaches the local policy observation, but the
+bundled learned policies use text through `--transcript-file`; they do not
+transcribe or forward raw PCM to OpenPI automatically.
 
-With `ConfiguredNoOpRobot`, `robot_state` is the station's configured initial
-pose. The live arm pose requires running the follower arms
-(`eval_policy_local --execute-actions`, section 4).
+The synchronizer maps Aria TicSync and RealSense capture clocks to host
+`perf_counter_ns`, selects camera/perception bundles within 100 ms, and rejects
+stale frames. At 15 Hz, a 30 Hz anchor supplies every second frame; lower-rate
+Aria streams may repeat their nearest sample. This is software alignment, not
+a shared hardware exposure trigger. Audio is drained continuously by timestamp
+rather than selecting one microphone chunk per image.
 
-## 3. Data collection 🚧
+With motors disabled, `robot_state` is the configured initial pose, **not
+measured encoder state**. Recording metadata identifies this explicitly.
 
-> Under construction: the recording format and teleop workflow may change.
+## 3. Zero-action observation recording and replay
 
-Record synchronized observations to HDF5 (cameras and glasses only, no motors):
+`zero_action_policy` returns a zero vector matching `robot_state`. It is a
+diagnostic policy: absolute zero joint positions could move a real robot,
+so its `observe_only` manifest makes the runner reject `--execute-actions`.
+No robot adapter or robot SDK is loaded during this run.
 
 ```bash
-.venv/bin/python -m edith.scripts.collect_trajectory_yam_local \
-  --mode preview --output recordings/episode_001.h5
+edith-collect --station configs/station.local.json \
+  --duration 20 --headless --output recordings/check/observations.h5
+
+# Equivalent explicit policy invocation:
+edith-eval --station configs/station.local.json \
+  --policy-dir policies/zero_action_policy \
+  --duration 20 --headless --output recordings/check2/observations.h5
+
+edith-replay recordings/check/observations.h5 \
+  --output-dir recordings/check/replay --play
 ```
 
-To also record YAM joint state and commands while teleoperating with GELLO
-leaders, use `--mode teleop --leaders leaders.json`.
+Replay exports a four-view `replay.mp4` with audio, `audio.wav`, a preview, and
+`verification.json` (audio gaps/mutes, RMS per channel, zero-action check, gaze
+validity, and maximum camera/perception timestamp spread). `--play` uses a
+local OpenCV window and ALSA `aplay`; without it, open the MP4 in a media player.
+The replay mixes no channels: it uses microphone 0 with a reported playback
+gain, while HDF5 retains unmodified multichannel int32 PCM.
 
-Each stream (`aria`, `eye_gaze`, `hand_pose`, `audio`, `top`, `left`, `right`,
-plus joint streams in teleop mode) is stored as its own HDF5 group with
-per-row timestamps. Read only rows below the root `complete_rows` attribute.
+HDF5 schema `edith.observations.v3` stores JPEG camera frames, raw perception,
+robot state, audio, timestamps and sequence numbers. `audio/pcm` is a variable
+length array per row, reshaped as `(-1, num_channels)`, with per-frame capture
+and source timestamps and mute flags. `policy_observation` saves the state,
+gaze/hand pixels, policy output, and text/timing metadata actually passed through
+the policy loop, including its first invocation. Images in recordings are JPEG
+encoded; the in-memory policy input remains RGB. Read only rows below the root
+`complete_rows` attribute after interruption. Existing recordings are never
+overwritten, and recordings stay local and ignored by Git.
 
-## 4. Training and evaluation
+## 4. Connect another robot repository
 
-### Training 🚧
+Implement `RobotAdapter` in the robot's own repository, install that package
+alongside Edith, and set the station's factory path:
 
-> Under construction: there is no training code in this repo yet.
+```json
+"robot": {"adapter": "my_robot_repo.edith_adapter:create_robot", "config": {}}
+```
 
-For now, train a policy outside this repo (e.g., π<sub>0.5</sub> with OpenPI)
-on YAM data, and serve it as an OpenPI-compatible server at
-`ws://127.0.0.1:8000`. [policies/README.md](policies/README.md) lists the
-metadata and action format the server must provide.
+The factory receives `config` as a keyword dictionary and returns an
+`edith.robot_utils.RobotAdapter`. See the runnable, in-memory three-joint
+[example](examples/robot_adapter.py). No edit to Edith's factory is needed.
 
-### Evaluation
-
-Each policy is a directory under [`policies/`](policies):
-
-| Policy | Inputs |
+| Adapter member | Contract |
 | --- | --- |
-| `policy_edith` | Robot views and state, plus an ego-view keyframe and subtask (the paper's method) |
-| `fam_hri` | FAM-HRI baseline: gaze- and speech-based intent inference |
-| `vlm_textvla` | VLM planner baseline: robot views and planner-generated subtask text |
-| `streamvla` | Ego + language baseline: robot views, state, text and the gaze-cropped Aria view |
-| `textvla` | Language-only baseline: robot views, state and text |
-| `static_hold` | Holds the current pose (hardware smoke test) |
+| `arm_order`, `action_size` | Match station `initial_state` key order and total dimension |
+| `start()` | Initialize the robot; factory construction must not enable motors |
+| `read(timeout)` | Return `RobotSnapshot(positions, timestamp_ns)` in host `perf_counter_ns`; honor the timeout |
+| `command(action)` | Accept one finite joint-position vector in the documented robot units |
+| `close()` | Stop/release owned resources; safe after partial startup |
 
-Run a policy. Motors stay off unless you add `--execute-actions`:
+State polling and command refresh run on separate threads. The adapter must
+serialize its driver as needed, map device clocks to the host clock, and enforce
+robot-specific limits/watchdogs. The runner waits for synchronized sensors
+before starting the adapter, polls live state into the same synchronizer, and
+bounds the first target against the startup pose. An adapter may perform its
+own startup/calibration motion in `start()`; consult its robot repository.
+
+To execute a compatible policy, explicitly add `--execute-actions`. Without
+that flag the factory is never imported and the configured no-op state is used.
+`--robot module:factory` overrides the station selection. The optional
+`--robot abc-yam` compatibility adapter loads the ABC station profile instead
+of station JSON and requires that robot's environment; see the YAM guide.
+
+Changing robot drivers does not convert a checkpoint's joint conventions,
+normalizers, gripper units or camera inputs. Core capture and diagnostic
+policies support arbitrary joint groups; the five supplied learned policy
+clients still enforce their **14-value bimanual YAM** model contract.
+
+## 5. Training and evaluation
+
+Training code and model checkpoints are not included. Train a compatible
+policy outside this repository and serve it through OpenPI, typically on
+`ws://127.0.0.1:8000`. [policies/README.md](policies/README.md) describes the
+checkpoint metadata and observation/action requirements.
+
+| Policy directory | Purpose |
+| --- | --- |
+| `policy_edith` | Robot views/state plus ego-view keyframe and subtask |
+| `fam_hri` | Gaze- and speech-based intent inference baseline |
+| `vlm_textvla` | VLM planner and text-only VLA baseline |
+| `streamvla` | Robot views/state, text and gaze-cropped Aria view |
+| `textvla` | Robot views/state and text |
+| `static_hold` | Repeat the startup joint-position target |
+| `zero_action_policy` | Record observation flow with zero outputs and no robot execution |
 
 ```bash
-.venv/bin/python -m edith.scripts.eval_policy_local \
+edith-eval --station configs/station.local.json \
   --policy-dir policies/policy_edith \
   --policy-config policies/policy_edith/presets/passing_tools.json --headless
 ```
 
-To add your own policy, create a directory containing `policy.json` and
-`policy.py`, then pass it with `--policy-dir`:
+To add a policy, provide `policy.json` and `policy.py` under a policy directory:
 
 ```json
 {"schema": "edith.policy.v1", "name": "my-policy", "entrypoint": "policy.py:Policy",
@@ -162,11 +237,16 @@ To add your own policy, create a directory containing `policy.json` and
 
 ```python
 class Policy:
-    def __init__(self, policy_dir, config): ...
+    def __init__(self, policy_dir, config):
+        pass
 
-    def act(self, obs):            # obs is the observation from section 2
-        return obs["robot_state"]  # (14,) joint-position target
+    def act(self, obs):
+        return obs["robot_state"].copy()  # one (D,) target, not an action chunk
 ```
+
+Run hardware-free validation with `.venv/bin/python -m unittest discover -s
+tests -v`. Legacy ABC integration checks are opt-in via `EDITH_TEST_ABC=1` in
+an ABC-equipped environment; core tests run without any robot SDK.
 
 ## Citation
 

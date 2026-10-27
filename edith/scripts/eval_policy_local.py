@@ -1,7 +1,7 @@
 """Run one policy directory with synchronized Aria Gen 2 and robot views.
 
 Evaluation does not open CAN by default. Pass ``--execute-actions`` to launch
-ABC/YAM followers without GELLO; the first action is bounded against the live
+the selected robot adapter; the first action is bounded against the live
 startup state before the command refresh thread starts.
 """
 
@@ -20,7 +20,7 @@ from edith.eval_utils.action_lease import ActionLease
 from edith.eval_utils.environment import RobotEvaluationEnv
 from edith.eval_utils.sync import Sample
 from edith.policy_utils import load_policy
-from edith.robot_utils.abc_config import DEFAULT_ABC_ROOT, load_station
+from edith.config import load_station
 from edith.robot_utils.factory import create_robot
 
 
@@ -57,8 +57,23 @@ def parser(*, default_policy=DEFAULT_POLICY):
         type=Path,
         help="Local JSON operator queue edit with a unique id",
     )
-    p.add_argument("--robot", choices=("abc-yam",), default="abc-yam")
-    p.add_argument("--abc-root", type=Path, default=DEFAULT_ABC_ROOT)
+    p.add_argument(
+        "--station",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "configs/station.example.json",
+        help="Robot-independent camera/joint-group JSON",
+    )
+    p.add_argument(
+        "--robot",
+        default=None,
+        help="Robot repository module:factory; defaults to station robot.adapter",
+    )
+    p.add_argument(
+        "--abc-root",
+        type=Path,
+        default=Path.home() / "dev/abc-robot-setting/abc",
+        help="Only used with --robot abc-yam",
+    )
     p.add_argument("--profile", default="abc_station_config")
     p.add_argument("--aria-serial", default="")
     p.add_argument(
@@ -85,7 +100,7 @@ def parser(*, default_policy=DEFAULT_POLICY):
     p.add_argument(
         "--execute-actions",
         action="store_true",
-        help="Open follower CAN and execute policy actions; GELLO is not used",
+        help="Start the selected robot adapter and execute policy actions",
     )
     p.add_argument(
         "--max-first-action-delta",
@@ -122,21 +137,21 @@ def _check_report(args, config, policy):
         "numpy",
         "cv2",
         "h5py",
-        "zmq",
         "pyrealsense2",
         "aria",
-        "i2rt",
     )
     missing_modules = [
         name for name in modules if importlib.util.find_spec(name) is None
     ]
-    can = {
-        name: {
-            "interface": robot.follower.channel,
-            "present": Path("/sys/class/net", robot.follower.channel).exists(),
+    can = {}
+    if args.robot == "abc-yam" and args.execute_actions:
+        can = {
+            name: {
+                "interface": group.follower.channel,
+                "present": Path("/sys/class/net", group.follower.channel).exists(),
+            }
+            for name, group in config.robots.items()
         }
-        for name, robot in config.robots.items()
-    }
     report = {
         "ready": (
             aria.ready
@@ -262,6 +277,8 @@ def main(argv=None, *, default_policy=DEFAULT_POLICY):
 
 
 def _run(args, policy):
+    if args.execute_actions and policy.manifest.get("observe_only"):
+        raise ValueError("This policy is observe_only; motor execution is forbidden")
     if args.check_policy_only:
         print(
             json.dumps(
@@ -275,7 +292,13 @@ def _run(args, policy):
         raise ValueError(
             "--output-fps must match policy control_hz so action chunks keep their intended rate"
         )
-    config = load_station(args.abc_root, args.profile)
+    if args.robot == "abc-yam":
+        from edith.robot_utils.abc_config import load_station as load_abc_station
+
+        config = load_abc_station(args.abc_root, args.profile)
+    else:
+        config = load_station(args.station)
+        args.robot = args.robot or config.adapter
     if args.check:
         report = _check_report(args, config, policy)
         print(json.dumps(report, indent=2))
@@ -287,12 +310,12 @@ def _run(args, policy):
     if args.record_vrs and Path(args.record_vrs).exists():
         raise FileExistsError(args.record_vrs)
 
-    from edith.envs.yam_env import YAMLocalEnv
+    from edith.envs.local_env import LocalSensorEnv
     from edith.eval_utils.recording import BundleWriter
 
     sensors = evaluation = robot = lease = writer = None
     try:
-        sensors = YAMLocalEnv(
+        sensors = LocalSensorEnv(
             config,
             args.aria_serial,
             args.aria_profile,
@@ -305,8 +328,6 @@ def _run(args, policy):
         )
         # Sensor health is a hard prerequisite for any motor initialization.
         first_bundle = sensors.get_bundle(args.timeout)
-        if args.execute_actions:
-            sensors.attach_robot_streams()
         robot = create_robot(
             args.robot,
             config=config,
@@ -316,6 +337,15 @@ def _run(args, policy):
         )
         robot.start()
         startup = robot.read(60 if args.execute_actions else 0.1)
+        if args.execute_actions:
+            sensors.attach_robot(robot)
+            # Startup can take seconds. Infer only from a fresh bundle that
+            # includes the selected adapter's synchronized live state.
+            first_bundle = sensors.get_bundle(args.timeout)
+        else:
+            _synthetic_robot_samples(
+                first_bundle, startup, startup.flat(robot.arm_order), robot.arm_order
+            )
         evaluation = RobotEvaluationEnv(
             sensors,
             robot,
@@ -327,9 +357,13 @@ def _run(args, policy):
         _add_policy_inputs(first_observation, args)
         policy.reset(first_observation)
         first_action = robot.validate_action(policy.act(first_observation))
+        if not args.execute_actions:
+            _synthetic_robot_samples(
+                first_bundle, startup, first_action, robot.arm_order
+            )
         startup_flat = startup.flat(robot.arm_order)
         first_delta = float(np.max(np.abs(first_action - startup_flat)))
-        if first_delta > args.max_first_action_delta:
+        if args.execute_actions and first_delta > args.max_first_action_delta:
             raise RuntimeError(
                 f"First action delta {first_delta:.6f} exceeds "
                 f"--max-first-action-delta {args.max_first_action_delta:.6f}"
@@ -344,13 +378,24 @@ def _run(args, policy):
                     "policy_manifest": policy.manifest,
                     "policy_directory": str(policy.root),
                     "robot_adapter": args.robot,
+                    "robot_execution_backend": type(robot).__module__
+                    + "."
+                    + type(robot).__name__,
+                    "robot_state_source": "adapter_live"
+                    if args.execute_actions
+                    else "configured_initial_state",
                     "execute_actions": args.execute_actions,
                     "instruction": args.instruction,
                     "first_action_max_abs_delta": first_delta,
                     "tolerance_ms": args.tolerance_ms,
                     "max_age_ms": args.max_age_ms,
+                    "sync_anchor": args.sync_camera,
                     "sync": "software capture-time alignment; not hardware trigger sync",
                 },
+            )
+            # Record the reset/first-act input as well as subsequent inputs.
+            writer.append(
+                first_bundle, observation=first_observation, action=first_action
             )
         print(
             f"Policy active: {policy.manifest.get('name', policy.root.name)}; "
@@ -358,7 +403,7 @@ def _run(args, policy):
             flush=True,
         )
         started = time.perf_counter()
-        count = 0
+        count = 1
         action = first_action
         while time.perf_counter() - started < args.duration:
             lease.check()
@@ -369,9 +414,11 @@ def _run(args, policy):
                 observation = evaluation.observation_from_bundle(bundle)
             _add_policy_inputs(observation, args)
             action = robot.validate_action(policy.act(observation))
+            if not args.execute_actions:
+                _synthetic_robot_samples(bundle, startup, action, robot.arm_order)
             lease.update(action)
             if writer:
-                writer.append(bundle)
+                writer.append(bundle, observation=observation, action=action)
             count += 1
             times = [sample.timestamp_ns for sample in bundle.values()]
             spread_ms = (max(times) - min(times)) / 1e6

@@ -1,4 +1,4 @@
-"""Local RealSense capture and ABC IPC state/action subscribers."""
+"""Local RealSense capture and robot-independent state acquisition."""
 
 import threading
 import time
@@ -73,57 +73,62 @@ class RealSenseSource:
         self.pipeline.stop()
 
 
-class ABCSubscriber:
-    def __init__(self, names, sink):
-        self.names, self.sink = names, sink
+# Compatibility for explicitly selected legacy ABC collectors.
+def __getattr__(name):
+    if name == "ABCSubscriber":
+        from edith.robot_utils.abc_streams import ABCSubscriber
+
+        return ABCSubscriber
+    raise AttributeError(name)
+
+
+class RobotStateSource:
+    """Publish a repository adapter's snapshots into the shared host-clock buffers."""
+
+    def __init__(self, robot, sink, poll_hz=30):
+        self.robot, self.sink = robot, sink
         self.stop_event = threading.Event()
+        self.period = 1 / poll_hz
         self.thread = threading.Thread(
-            target=self._run, daemon=True, name="abc-local-state"
+            target=self._run, daemon=True, name="robot-observations"
         )
         self.thread.start()
 
     def _run(self):
-        import zmq
-        from deploy.robot import communication as comms
-
-        context = zmq.Context()
-        sockets = {}
+        sequence = 0
         try:
-            poller = zmq.Poller()
-            for name in self.names:
-                sock = comms.create_subscriber(context, name)
-                sock.setsockopt(zmq.RCVHWM, 32)
-                sockets[sock] = name
-                poller.register(sock, zmq.POLLIN)
-            sequence = dict.fromkeys(self.names, 0)
             while not self.stop_event.is_set():
-                for sock in dict(poller.poll(100)):
-                    data, metadata = comms.subscribe(sock)
-                    timestamp = round(float(metadata["timestamp"]) * 1e9)
-                    name = sockets[sock]
-                    if data.shape != (7,) or not np.all(np.isfinite(data)):
-                        raise ValueError(
-                            f"Invalid YAM joint vector on {name}: {data.shape}"
-                        )
-                    sequence[name] += 1
+                snapshot = self.robot.read(timeout=1)
+                received = time.perf_counter_ns()
+                sequence += 1
+                if snapshot.flat(self.robot.arm_order).shape != (
+                    self.robot.action_size,
+                ):
+                    raise ValueError(
+                        "Robot snapshot dimension does not match its action contract"
+                    )
+                for group in self.robot.arm_order:
+                    values = np.asarray(snapshot.positions[group], dtype=float)
+                    if values.ndim != 1 or not np.isfinite(values).all():
+                        raise ValueError(f"Invalid robot state for {group}")
                     self.sink.add(
-                        name,
+                        f"follower_{group}_state",
                         Sample(
-                            timestamp,
-                            time.perf_counter_ns(),
-                            timestamp,
-                            sequence[name],
-                            data,
-                            "abc_host_publish",
+                            snapshot.timestamp_ns,
+                            received,
+                            snapshot.timestamp_ns,
+                            sequence,
+                            values.copy(),
+                            "robot_adapter_host_capture",
                         ),
                     )
+                self.stop_event.wait(self.period)
         except Exception as error:
-            self.sink.fail(error)
-        finally:
-            for sock in sockets:
-                sock.close(linger=0)
-            context.term()
+            if not self.stop_event.is_set():
+                self.sink.fail(error)
 
     def close(self):
         self.stop_event.set()
         self.thread.join(timeout=2)
+        if self.thread.is_alive():
+            raise RuntimeError("Robot read did not honor its timeout during shutdown")
