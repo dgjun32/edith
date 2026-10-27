@@ -164,7 +164,9 @@ gaze/hand pixels, policy output, and text/timing metadata actually passed throug
 the policy loop, including its first invocation. Images in recordings are JPEG
 encoded; the in-memory policy input remains RGB. Read only rows below the root
 `complete_rows` attribute after interruption. Existing recordings are never
-overwritten, and recordings stay local and ignored by Git.
+overwritten, and routine recordings are ignored by Git. A complete recorded
+[example with video/audio replay, raw data, and a reading guide](examples/zero_action_observations/README.md)
+is included under `examples/zero_action_observations/`.
 
 ## 4. Connect another robot repository
 

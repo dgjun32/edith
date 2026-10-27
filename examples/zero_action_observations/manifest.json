@@ -1,0 +1,63 @@
+{
+  "schema": "edith.example.v1",
+  "recording_schema": "edith.observations.v3",
+  "recorded_at": "2026-10-27T18:33:14+09:00",
+  "compression": "xz",
+  "archive": {
+    "bytes": 109081292,
+    "sha256": "d262f388701ea62dc9350d737d260ccf6a9d4c91279a51ca1a954948fe599a4f"
+  },
+  "archive_parts": [
+    {
+      "path": "archive/observations.h5.xz.part-01",
+      "bytes": 33554432,
+      "sha256": "fd9c0c1c346790ae9ce3224ccda9debc276f12586f1a4afbe486ded9567f7a01"
+    },
+    {
+      "path": "archive/observations.h5.xz.part-02",
+      "bytes": 33554432,
+      "sha256": "efe9d3e8c31658231c753d4bc2596287dbe38ed1ab37324dcb4d10254b8c29e2"
+    },
+    {
+      "path": "archive/observations.h5.xz.part-03",
+      "bytes": 33554432,
+      "sha256": "4682b8b235b5486c2d738bab03bfb58a76c1a2c91deed2fe84c142fc83abcc88"
+    },
+    {
+      "path": "archive/observations.h5.xz.part-04",
+      "bytes": 8417996,
+      "sha256": "bca6931f6abbfbf0ea07ac1a1c65c7f801655843815e47854dddcf391d5b9828"
+    }
+  ],
+  "uncompressed": {
+    "path": "observations.h5",
+    "bytes": 157607112,
+    "sha256": "a02800ea2323aba42f692c32f945e7c614d629beb5ab6f984a4ae90b1df22a75"
+  },
+  "media": {
+    "replay.mp4": {
+      "bytes": 1004918,
+      "sha256": "52ac0b7f3b77d81080859950cfddc28f20c657a9763de7bb91f9edcc3a0198af"
+    },
+    "audio.wav": {
+      "bytes": 488698,
+      "sha256": "da8afcc60cf92a804b0a455363c39fc87eb84628936db4cd16bbfff684ada2bb"
+    },
+    "preview.jpg": {
+      "bytes": 173569,
+      "sha256": "6dceb9730bb1665d178406cdcdc5ffbf79a96a355dd7062924fcae745a24edc3"
+    },
+    "verification.json": {
+      "bytes": 982,
+      "sha256": "8632e214a12d3f0f7af7dc7633b30e9a505be0908ed6a955f58c2163ad76cd5f"
+    }
+  },
+  "metadata_changes": [
+    "Replaced absolute policy directory with repository-relative path.",
+    "Replaced physical camera serials with descriptive placeholders.",
+    "Added sync_anchor=top and a note describing this example."
+  ],
+  "sensor_and_policy_arrays": "unchanged; all 229 complete rows retained",
+  "code_reference_commit": "c33d843912fa5082abf6ac1b6b31eba26d8e2faf",
+  "code_reference_note": "Captured during development of this commit; this revision reads and replays the example."
+}

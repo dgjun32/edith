@@ -1,0 +1,38 @@
+{
+  "source": "examples/zero_action_observations/observations.h5",
+  "observations": 229,
+  "duration_s": 15.270435225,
+  "video_views": [
+    "aria",
+    "top",
+    "left",
+    "right"
+  ],
+  "audio_channels": 8,
+  "audio_sample_rate_hz": 16000,
+  "audio_frames": 270720,
+  "audio_muted_frames": 0,
+  "audio_source_gaps": 0,
+  "audio_channel_rms": [
+    9.4253322458826e-05,
+    9.043283353094012e-05,
+    9.18031728360802e-05,
+    9.31543909246102e-05,
+    9.069755469681695e-05,
+    9.232640150003135e-05,
+    9.048708307091147e-05,
+    9.028278873302042e-05
+  ],
+  "replay_audio_channel": 0,
+  "replay_gain": 16.0,
+  "execute_actions": false,
+  "robot_state_source": "configured_initial_state",
+  "sync_anchor": "top",
+  "audio_buffer_dropped_frames": 0,
+  "observations_with_audio_frames": 229,
+  "all_policy_actions_zero": true,
+  "gaze_valid_fraction": 0.0,
+  "policy_action_dimension": 14,
+  "all_policy_observations_have_audio": true,
+  "max_bundle_spread_ms": 99.953837
+}
