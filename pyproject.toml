@@ -20,6 +20,7 @@ realsense = ["pyrealsense2>=2.55"]
 yam = ["pyzmq>=25", "tyro>=0.8", "dynamixel-sdk>=3.7"]
 replay = ["imageio-ffmpeg>=0.5"]
 policies = ["msgpack>=1.0", "websockets>=14", "google-genai>=2.31,<3"]
+speech = ["faster-whisper>=1.0", "pillow>=10"]
 
 [project.scripts]
 edith-collect = "edith.scripts.collect_observations:main"
@@ -29,6 +30,10 @@ edith-dashboard = "edith.scripts.live_sensor_dashboard:main"
 
 [tool.setuptools.packages.find]
 include = ["edith*"]
+
+[tool.setuptools.package-data]
+# Bundled policy directories carry manifests, presets, prompts and notes.
+"edith.policies" = ["**/*.json", "**/*.txt", "**/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

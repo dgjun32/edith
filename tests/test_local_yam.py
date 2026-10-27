@@ -10,9 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
-from edith.local.sync import Sample, Synchronizer
-from edith.local.aria import AriaGen2Camera
-from edith.local.recording import BundleWriter
+from edith.eval_utils.sync import Sample, Synchronizer
+from edith.aria_utils import AriaGen2Camera
+from edith.eval_utils.recording import BundleWriter
 
 
 def sample(t, sequence=1, data=None):
@@ -471,10 +471,10 @@ class IntegrationTests(unittest.TestCase):
     def test_actual_abc_ipc_wire_format(self):
         import uuid
         import zmq
-        from edith.local.abc_runtime import load_station
-        from edith.local.sources import ABCSubscriber
+        from edith.robot_utils.abc_runtime import load_abc_teleop_station
+        from edith.robot_utils.abc_streams import ABCSubscriber
 
-        load_station()
+        load_abc_teleop_station()
         from deploy.robot import communication as comms
 
         name = "edith_test_" + uuid.uuid4().hex
@@ -514,13 +514,13 @@ class IntegrationTests(unittest.TestCase):
 
     def test_incomplete_leader_overrides_rejected(self):
         import json
-        from edith.local.abc_runtime import load_station
+        from edith.robot_utils.abc_runtime import load_abc_teleop_station
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "leaders.json"
             path.write_text(json.dumps({"left": {"device_name": "/dev/fake"}}))
             with self.assertRaises(ValueError):
-                load_station(leaders=path)
+                load_abc_teleop_station(leaders=path)
 
 
 if __name__ == "__main__":

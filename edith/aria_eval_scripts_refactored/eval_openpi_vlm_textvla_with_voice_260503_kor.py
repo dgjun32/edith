@@ -35,8 +35,8 @@ import threading
 import time
 from typing import List, Optional, Tuple
 
-from edith.envs.piper_env_gaze import PiperRobotEnv
-from edith.utils.time_utils import Timer
+from edith.legacy.envs.piper_env_gaze import PiperRobotEnv
+from edith.legacy.utils.time_utils import Timer
 
 from openpi_client import websocket_client_policy
 from common.streamer import (

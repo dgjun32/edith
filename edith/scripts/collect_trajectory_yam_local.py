@@ -15,11 +15,9 @@ from edith.aria_utils import (
     HAND_POSE_FIELDS,
     draw_perception_bgr,
 )
-from edith.local.abc_runtime import (
-    DEFAULT_ABC_ROOT,
-    load_station,
-    validate_teleop,
-)
+from edith.robot_utils.abc_config import DEFAULT_ABC_ROOT
+from edith.robot_utils.abc_runtime import load_abc_teleop_station
+from edith.teleop_utils.gello import validate_gello
 
 
 EYE_GAZE_INDEX = {name: index for index, name in enumerate(EYE_GAZE_FIELDS)}
@@ -101,7 +99,7 @@ def main(argv=None):
         or args.duration < 0
     ):
         raise ValueError("Invalid timing configuration")
-    config = load_station(args.abc_root, args.profile, args.leaders)
+    config = load_abc_teleop_station(args.abc_root, args.profile, args.leaders)
     missing = []
     for module in (
         "numpy",
@@ -128,12 +126,12 @@ def main(argv=None):
             )
         )
         if args.mode == "teleop":
-            validate_teleop(config, args.leaders)
+            validate_gello(config, args.leaders)
         return 1 if missing else 0
     if missing:
         raise RuntimeError(f"Missing dependencies: {missing}. See README_LOCAL_YAM.md")
     if args.mode == "teleop":
-        validate_teleop(config, args.leaders)
+        validate_gello(config, args.leaders)
     if args.output:
         if args.output.exists():
             raise FileExistsError(args.output)
@@ -172,7 +170,7 @@ def main(argv=None):
                 [
                     sys.executable,
                     "-m",
-                    "edith.local.abc_runtime",
+                    "edith.robot_utils.abc_runtime",
                     "--abc-root",
                     str(args.abc_root.resolve()),
                     "--profile",

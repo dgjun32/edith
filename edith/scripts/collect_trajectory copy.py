@@ -3,15 +3,15 @@ import re
 import datetime as dt
 
 try:
-    from edith.utils.misc import collect_trajectory
+    from edith.legacy.utils.misc import collect_trajectory
 except ModuleNotFoundError:
     # Backward-compatible fallback
     from droid.trajectory_utils.misc import collect_trajectory
 import inspect
 print(inspect.getfile(collect_trajectory))
 
-from edith.envs.piper_env import PiperRobotEnv
-from edith.teleoperators.joint_teleop_controller import DroidJointTeleopController, JointTeleopControllerConfig
+from edith.legacy.envs.piper_env import PiperRobotEnv
+from edith.legacy.teleoperators.joint_teleop_controller import DroidJointTeleopController, JointTeleopControllerConfig
 
 if __name__ == "__main__":
     import argparse

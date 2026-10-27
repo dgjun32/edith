@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from edith.aria_utils import AriaGen2Camera
-from edith.policy_utils import load_policy
+from edith.policies import load_policy
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,9 +108,7 @@ class EdithEntrypointTests(unittest.TestCase):
         def guarded_import(name, *args, **kwargs):
             if name.startswith(
                 (
-                    "edith.envs.piper_env",
-                    "edith.robots.piper_robot",
-                    "edith.sensors.aria_camera",
+                    "edith.legacy",
                     "common",
                     "ours_utils",
                     "openpi_client",
@@ -136,7 +134,7 @@ class EdithEntrypointTests(unittest.TestCase):
                         side_effect=AssertionError("Must not access station"),
                     ),
                     patch(
-                        "edith.policy_utils.openpi.OpenPIClient._connect",
+                        "edith.policies.common.openpi.OpenPIClient._connect",
                         side_effect=AssertionError("Must not connect to model"),
                     ),
                     redirect_stdout(output),
@@ -147,16 +145,16 @@ class EdithEntrypointTests(unittest.TestCase):
                 report = json.loads(output.getvalue())
                 self.assertEqual(report["policy"]["name"], "policy_edith")
                 self.assertEqual(
-                    Path(report["directory"]), ROOT / "policies/policy_edith"
+                    Path(report["directory"]), ROOT / "edith/policies/policy_edith"
                 )
                 self.assertEqual(
                     report["policy"]["config"]["server_url"], "ws://127.0.0.1:8000"
                 )
 
     def test_previous_policy_path_resolves_to_same_assets(self):
-        policy = load_policy(ROOT / "policies/edith")
+        policy = load_policy(ROOT / "edith/policies/edith")
         try:
-            self.assertEqual(policy.root, ROOT / "policies/policy_edith")
+            self.assertEqual(policy.root, ROOT / "edith/policies/policy_edith")
             self.assertEqual(policy.manifest["name"], "policy_edith")
             self.assertTrue((policy.root / "prompts/passing_tools.txt").is_file())
         finally:

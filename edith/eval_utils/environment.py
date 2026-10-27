@@ -35,17 +35,15 @@ class RobotEvaluationEnv:
         self.last_bundle = None
 
     def observation_from_bundle(self, bundle) -> dict:
-        projector = audio_sample_rate_hz = None
+        projector = None
         if getattr(self.sensors, "aria", None) is not None:
             projector = self.sensors.aria.project_perception_to_rgb
-            audio_sample_rate_hz = self.sensors.aria.audio.sample_rate_hz
         return build_observation(
             bundle,
             arm_order=self.robot.arm_order,
             fallback_state=self.fallback_state,
             instruction=self.instruction,
             projector=projector,
-            audio_sample_rate_hz=audio_sample_rate_hz,
         )
 
     def get_policy_observation(self, timeout=5.0) -> dict:

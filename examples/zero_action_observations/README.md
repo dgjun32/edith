@@ -1,7 +1,7 @@
 # Recorded zero-action observations
 
 This is a complete 15-second capture from directly connected Aria Gen 2 glasses
-and three RealSense robot cameras, using `policies/zero_action_policy`. It shows
+and three RealSense robot cameras, using `edith/policies/zero_action_policy`. It shows
 the observation data available to the local policy runner. No robot driver was
 loaded and no motor commands were sent.
 

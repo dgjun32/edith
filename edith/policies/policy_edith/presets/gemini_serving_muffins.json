@@ -1,0 +1,4 @@
+{
+  "planner": "gemini",
+  "prompt_file": "prompts/serving_muffins.txt"
+}

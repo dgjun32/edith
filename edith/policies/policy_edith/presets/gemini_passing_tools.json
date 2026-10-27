@@ -1,0 +1,4 @@
+{
+  "planner": "gemini",
+  "prompt_file": "prompts/passing_tools.txt"
+}

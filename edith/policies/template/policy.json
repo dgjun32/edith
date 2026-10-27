@@ -1,0 +1,8 @@
+{
+  "schema": "edith.policy.v1",
+  "name": "template",
+  "entrypoint": "policy.py:Policy",
+  "control_hz": 15,
+  "action_space": "joint_position",
+  "config": {}
+}

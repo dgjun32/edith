@@ -5,7 +5,7 @@ capture on the deployment computer and synchronized local YAM observations.
 Use the current runner flags (``--help``), not the old experiment CLI.
 Voice instructions arrive through ``--transcript-file``; this launcher does
 not capture audio or implicitly enable Whisper/Gemini. See
-``policies/policy_edith/README.md`` for presets and optional Gemini planning.
+``edith/policies/policy_edith/README.md`` for presets and optional Gemini planning.
 """
 
 from pathlib import Path

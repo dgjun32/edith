@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 
 
-POLICY_DIR = Path(__file__).resolve().parents[2] / "policies/policy_edith"
+POLICY_DIR = Path(__file__).resolve().parents[1] / "policies/policy_edith"
 
 
 def main(argv=None):

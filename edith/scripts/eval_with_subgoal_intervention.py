@@ -1,9 +1,9 @@
 import numpy as np
 import traceback
 
-from edith.envs.piper_env import PiperRobotEnv
-from edith.utils.time_utils import Timer
-from edith.utils.inference_client import Gr00tRobotInferenceSyncClient, Gr00tRobotInferenceAsyncClient
+from edith.legacy.envs.piper_env import PiperRobotEnv
+from edith.legacy.utils.time_utils import Timer
+from edith.legacy.utils.inference_client import Gr00tRobotInferenceSyncClient, Gr00tRobotInferenceAsyncClient
 
 import pandas as pd
 

@@ -50,7 +50,6 @@ def build_observation(
     fallback_state,
     instruction="",
     projector: Callable | None = None,
-    audio_sample_rate_hz=None,
 ) -> dict:
     """Build the stable observation contract consumed by local policies.
 
@@ -103,10 +102,11 @@ def build_observation(
     }
     if "audio" in bundle:
         # Every microphone frame captured since the previous observation, up
-        # to this bundle's anchor time; end_timestamp_ns is the last frame.
+        # to this bundle's anchor time, with the buffer's timing metadata
+        # (sample rate, per-frame timestamps, mute flags); end_timestamp_ns is
+        # the last frame.
         observation["audio"] = {
             "samples": bundle["audio"].data,
-            "sample_rate_hz": audio_sample_rate_hz,
             **(bundle["audio"].metadata or {}),
             "end_timestamp_ns": int(bundle["audio"].timestamp_ns),
         }

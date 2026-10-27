@@ -13,7 +13,7 @@ import numpy as np
 import h5py
 from edith.config import StationConfig, JointGroupConfig
 from edith.robot_utils.factory import create_robot
-from edith.policy_utils import load_policy
+from edith.policies import load_policy
 from edith.aria_utils.audio import AudioBuffer
 from edith.eval_utils.recording import BundleWriter
 
@@ -35,7 +35,7 @@ from edith.scripts.live_sensor_dashboard import parser
 from edith.scripts.eval_policy_local import main
 config=load_station('configs/station.example.json')
 assert config.adapter=='none'
-main(['--policy-dir','policies/zero_action_policy','--check-policy-only'])
+main(['--policy-dir','zero_action_policy','--check-policy-only'])
 """
         result = subprocess.run(
             [sys.executable, "-c", code],
@@ -81,7 +81,7 @@ main(['--policy-dir','policies/zero_action_policy','--check-policy-only'])
     def test_zero_action_policy_is_generic_and_cannot_execute_motors(self):
         from edith.scripts.eval_policy_local import main
 
-        policy = load_policy(ROOT / "policies/zero_action_policy")
+        policy = load_policy(ROOT / "edith/policies/zero_action_policy")
         np.testing.assert_equal(policy.act({"robot_state": np.ones(3)}), np.zeros(3))
         with patch(
             "edith.scripts.eval_policy_local.load_station",
@@ -91,7 +91,7 @@ main(['--policy-dir','policies/zero_action_policy','--check-policy-only'])
                 main(
                     [
                         "--policy-dir",
-                        str(ROOT / "policies/zero_action_policy"),
+                        str(ROOT / "edith/policies/zero_action_policy"),
                         "--execute-actions",
                     ]
                 )
@@ -143,7 +143,7 @@ class AudioRecordingTests(unittest.TestCase):
 
         policy = SimpleNamespace(
             control_hz=15,
-            root=ROOT / "policies/zero_action_policy",
+            root=ROOT / "edith/policies/zero_action_policy",
             manifest={"name": "zero_action_policy", "observe_only": True},
             reset=lambda observation: None,
             act=act,

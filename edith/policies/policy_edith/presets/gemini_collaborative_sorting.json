@@ -1,0 +1,4 @@
+{
+  "planner": "gemini",
+  "prompt_file": "prompts/collaborative_sorting.txt"
+}

@@ -10,7 +10,7 @@ import time
 import numpy as np
 
 from edith.eval_utils.sync import Sample
-from .audio import AUDIO_SAMPLE_RATE_HZ, AudioBuffer  # noqa: F401
+from .audio import AudioBuffer
 
 
 EYE_GAZE_FIELDS = (

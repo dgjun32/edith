@@ -19,12 +19,13 @@ from edith.aria_utils import inspect_device_connection
 from edith.eval_utils.action_lease import ActionLease
 from edith.eval_utils.environment import RobotEvaluationEnv
 from edith.eval_utils.sync import Sample
-from edith.policy_utils import load_policy
+from edith.policies import load_policy
 from edith.config import load_station
+from edith.robot_utils.abc_config import DEFAULT_ABC_ROOT
 from edith.robot_utils.factory import create_robot
 
 
-DEFAULT_POLICY = Path(__file__).resolve().parents[2] / "policies/static_hold"
+DEFAULT_POLICY = Path(__file__).resolve().parents[1] / "policies/static_hold"
 
 
 def parser(*, default_policy=DEFAULT_POLICY):
@@ -71,7 +72,7 @@ def parser(*, default_policy=DEFAULT_POLICY):
     p.add_argument(
         "--abc-root",
         type=Path,
-        default=Path.home() / "dev/abc-robot-setting/abc",
+        default=DEFAULT_ABC_ROOT,
         help="Only used with --robot abc-yam",
     )
     p.add_argument("--profile", default="abc_station_config")
@@ -293,7 +294,7 @@ def _run(args, policy):
             "--output-fps must match policy control_hz so action chunks keep their intended rate"
         )
     if args.robot == "abc-yam":
-        from edith.robot_utils.abc_config import load_station as load_abc_station
+        from edith.robot_utils.abc_config import load_abc_station
 
         config = load_abc_station(args.abc_root, args.profile)
     else:

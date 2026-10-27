@@ -9,7 +9,7 @@ import sys
 DEFAULT_ABC_ROOT = Path.home() / "dev/abc-robot-setting/abc"
 
 
-def load_station(root=DEFAULT_ABC_ROOT, profile="abc_station_config"):
+def load_abc_station(root=DEFAULT_ABC_ROOT, profile="abc_station_config"):
     root = Path(root).expanduser().resolve()
     if not (root / "deploy/robot/config.py").is_file():
         raise FileNotFoundError(f"ABC deployment checkout not found: {root}")

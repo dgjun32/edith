@@ -2,8 +2,8 @@ import numpy as np
 import time
 from droid.trajectory_utils.misc import TrajectoryReader
 
-from edith.envs.piper_env import PiperRobotEnv
-from edith.utils.time_utils import Timer
+from edith.legacy.envs.piper_env import PiperRobotEnv
+from edith.legacy.utils.time_utils import Timer
 
 def replay_trajectory(
     env, filepath=None,

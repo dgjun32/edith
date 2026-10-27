@@ -2,7 +2,7 @@
 
 from contextlib import ExitStack
 from edith.eval_utils.sync import Synchronizer
-from edith.local.sources import RealSenseSource
+from edith.envs.sources import RealSenseSource
 from edith.aria_utils import AriaGen2Camera
 
 
@@ -69,7 +69,7 @@ class LocalSensorEnv:
 
     def attach_robot(self, robot):
         from collections import deque
-        from edith.local.sources import RobotStateSource
+        from edith.envs.sources import RobotStateSource
 
         if self.robot_topics:
             raise RuntimeError("Robot state is already attached")

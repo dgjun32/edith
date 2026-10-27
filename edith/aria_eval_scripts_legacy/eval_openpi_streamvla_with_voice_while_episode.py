@@ -29,8 +29,8 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from edith.envs.piper_env_gaze import PiperRobotEnv
-from edith.utils.time_utils import Timer
+from edith.legacy.envs.piper_env_gaze import PiperRobotEnv
+from edith.legacy.utils.time_utils import Timer
 
 from openai import OpenAI
 

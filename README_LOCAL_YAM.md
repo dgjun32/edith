@@ -7,17 +7,25 @@ to the optional ABC/YAM controller and GELLO teleoperation integration.
 
 ## Install in the robot environment
 
-Keep the robot repository as a separate checkout. Use its supported Python
-environment and install Edith into that environment, or install the robot's
-verified dependencies into a dedicated YAM environment:
+Install Edith and the pinned i2rt driver into the robot's supported Python
+environment, or into a dedicated YAM environment:
 
 ```bash
+cd /path/to/edith
+git submodule update --init i2rt   # i2rt YAM motor driver, pinned at v1.3.5
 uv pip install --python /path/to/yam-env/bin/python \
-  -e '/path/to/edith[aria,realsense,policies,replay,yam]'
-# Follow the robot repository's installation instructions for ABC and i2rt.
-# If its instructions use an editable i2rt checkout:
-uv pip install --python /path/to/yam-env/bin/python -e /path/to/abc-robot-setting/i2rt
+  -e '.[aria,realsense,policies,replay,yam]' \
+  -e i2rt
 ```
+
+The `i2rt/` submodule is upstream
+[i2rt-robotics/i2rt](https://github.com/i2rt-robotics/i2rt) pinned at v1.3.5
+(`5b72c47`), the same version the robot server runs, with no local changes.
+Do not edit files inside `i2rt/`. To change the driver version, check out the
+new commit inside `i2rt/`, then commit the updated submodule pointer in Edith.
+(i2rt's own package metadata reports version 1.1.2; the pinned commit is what
+identifies the release.) The ABC deployment (`abc-robot-setting/abc`) is still
+a separate checkout, passed with `--abc-root`.
 
 The `yam` extra installs the IPC/CLI/GELLO Python dependencies, not a robot
 repository or controller firmware. `requirements-local-yam*.txt` are historical
@@ -73,12 +81,12 @@ python -m edith.scripts.eval_policy_local \
 # Full sensor/policy path, configured state, no motors.
 python -m edith.scripts.eval_policy_local \
   --robot abc-yam --abc-root /path/to/abc-robot-setting/abc \
-  --policy-dir policies/static_hold --duration 10 --headless
+  --policy-dir static_hold --duration 10 --headless
 
 # Explicit hardware execution: starts ABC/YAM followers and their startup routine.
 python -m edith.scripts.eval_policy_local \
   --robot abc-yam --abc-root /path/to/abc-robot-setting/abc \
-  --policy-dir policies/static_hold --execute-actions \
+  --policy-dir static_hold --execute-actions \
   --duration 10 --headless --output recordings/hold.h5
 ```
 
@@ -92,7 +100,7 @@ capture times. The live-state adapter maps them into the local synchronizer.
 
 Learned policies need a YAM-trained checkpoint with the documented 14-value
 action order and matching normalization. Piper-trained actions are not
-interchangeable. Pass `--policy-dir policies/policy_edith` and an appropriate
+interchangeable. Pass `--policy-dir policy_edith` and an appropriate
 preset to select that client. Audio is exposed to the policy, but voice text
 still comes from `--transcript-file` unless a separate STT process is supplied.
 

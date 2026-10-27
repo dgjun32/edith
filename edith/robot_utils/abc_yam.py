@@ -138,7 +138,3 @@ class ABCYAMRobot(RobotAdapter):
         if self.context is not None:
             self.context.term()
             self.context = None
-
-
-# Backward-compatible import for existing ABC deployments.
-from .noop import ConfiguredNoOpRobot  # noqa: E402, F401

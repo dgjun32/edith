@@ -1,8 +1,8 @@
 import numpy as np
 
-from edith.envs.piper_env import PiperRobotEnv
-from edith.utils.time_utils import Timer
-from edith.utils.inference_client import PiRobotClient
+from edith.legacy.envs.piper_env import PiperRobotEnv
+from edith.legacy.utils.time_utils import Timer
+from edith.legacy.utils.inference_client import PiRobotClient
 
 import pandas as pd
 

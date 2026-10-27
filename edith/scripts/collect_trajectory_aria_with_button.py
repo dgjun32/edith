@@ -4,8 +4,8 @@ import datetime as dt
 
 from droid.trajectory_utils.misc_aria_with_button import collect_trajectory_with_aria_camera
 
-from edith.envs.piper_env import PiperRobotEnv
-from edith.teleoperators.joint_teleop_controller import DroidJointTeleopController, JointTeleopControllerConfig
+from edith.legacy.envs.piper_env import PiperRobotEnv
+from edith.legacy.teleoperators.joint_teleop_controller import DroidJointTeleopController, JointTeleopControllerConfig
 
 if __name__ == "__main__":
     import argparse

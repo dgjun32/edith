@@ -10,13 +10,13 @@ import numpy as np
 
 from edith.eval_utils.environment import RobotEvaluationEnv
 from edith.eval_utils.observation import build_observation
-from edith.local.sync import Sample
-from edith.policy_utils import load_policy
-from edith.robot_utils.abc_yam import ConfiguredNoOpRobot
+from edith.eval_utils.sync import Sample
+from edith.policies import load_policy
+from edith.robot_utils.noop import ConfiguredNoOpRobot
 
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
-STATIC_POLICY = SOURCE_ROOT / "policies/static_hold"
+STATIC_POLICY = SOURCE_ROOT / "edith/policies/static_hold"
 
 
 class PolicyDirectoryTests(unittest.TestCase):
@@ -36,6 +36,41 @@ class PolicyDirectoryTests(unittest.TestCase):
                 '"entrypoint":"../outside.py:Policy","action_space":"joint_position"}'
             )
             with self.assertRaisesRegex(ValueError, "inside the policy directory"):
+                load_policy(root)
+
+    def test_bundled_policies_load_by_name(self):
+        self.assertEqual(load_policy("static_hold").root, STATIC_POLICY)
+        self.assertEqual(
+            load_policy("edith").root, SOURCE_ROOT / "edith/policies/policy_edith"
+        )
+        with self.assertRaisesRegex(FileNotFoundError, "bundled policies: .*template"):
+            load_policy("no_such_policy")
+
+    def test_template_holds_the_current_pose(self):
+        policy = load_policy("template")
+        state = np.arange(14, dtype=float)
+        np.testing.assert_array_equal(policy.act({"robot_state": state}), state)
+
+    def test_entrypoint_must_subclass_base_policy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "policy.json").write_text(
+                '{"schema":"edith.policy.v1",'
+                '"entrypoint":"policy.py:Policy","action_space":"joint_position"}'
+            )
+            (root / "policy.py").write_text(
+                "class Policy:\n"
+                "    def __init__(self, policy_dir, config): pass\n"
+                "    def act(self, obs): return [0.0]\n"
+            )
+            with self.assertRaisesRegex(TypeError, "subclass edith.policies.BasePolicy"):
+                load_policy(root)
+            (root / "policy.py").write_text(
+                "from edith.policies import BasePolicy\n"
+                "class Policy(BasePolicy):\n"
+                "    pass\n"
+            )
+            with self.assertRaisesRegex(TypeError, "abstract method 'act'|act"):
                 load_policy(root)
 
 
@@ -98,11 +133,11 @@ class AdapterContractTests(unittest.TestCase):
             100, 101, 99, 6, np.arange(4), "test", ("a", "b", "c", "d")
         )
         pcm = np.ones((800, 2), np.int32)
-        bundle["audio"] = Sample(100, 101, 99, 800, pcm, "test")
+        bundle["audio"] = Sample(
+            100, 101, 99, 800, pcm, "test", metadata={"sample_rate_hz": 16_000}
+        )
 
         class Aria:
-            audio = SimpleNamespace(sample_rate_hz=48_000)
-
             @staticmethod
             def project_perception_to_rgb(eye_gaze, hand_pose):
                 del eye_gaze, hand_pose
@@ -141,7 +176,7 @@ class AdapterContractTests(unittest.TestCase):
         self.assertEqual(observation["hand_keypoints"]["left"].shape, (21, 2))
         self.assertTrue(np.isnan(observation["hand_keypoints"]["right"]).all())
         np.testing.assert_array_equal(observation["audio"]["samples"], pcm)
-        self.assertEqual(observation["audio"]["sample_rate_hz"], 48_000)
+        self.assertEqual(observation["audio"]["sample_rate_hz"], 16_000)
         self.assertEqual(observation["audio"]["end_timestamp_ns"], 100)
         self.assertEqual(
             set(observation["robot_state"]),

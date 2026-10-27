@@ -1,8 +1,8 @@
 """Project Aria helpers, independent of robot and evaluation code."""
 
+from .audio import AudioBuffer
 from .gen2 import (
     AriaGen2Camera,
-    AudioBuffer,
     EYE_GAZE_FIELDS,
     HAND_LANDMARK_NAMES,
     HAND_POSE_FIELDS,

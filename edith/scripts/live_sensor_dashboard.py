@@ -13,7 +13,7 @@ import time
 import numpy as np
 
 from edith.aria_utils import AriaGen2Camera, draw_perception_bgr
-from edith.local.sources import RealSenseSource
+from edith.envs.sources import RealSenseSource
 from edith.config import load_station
 
 

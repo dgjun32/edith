@@ -29,8 +29,8 @@ _FFMPEG = "/home/alin/miniconda3/envs/piper/bin/ffmpeg"
 # ensure the package root is importable when run directly
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from edith.envs.piper_env_gaze import PiperRobotEnv
-from edith.utils.time_utils import Timer
+from edith.legacy.envs.piper_env_gaze import PiperRobotEnv
+from edith.legacy.utils.time_utils import Timer
 from common.config import SERVER_IP
 
 from ours_utils.audio_processing import (

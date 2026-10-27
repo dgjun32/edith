@@ -1,4 +1,4 @@
-"""Continuous Gen 2 PCM intervals; preserve the main-branch samples contract."""
+"""Gen 2 microphone buffer: each bundle takes every frame captured up to its anchor."""
 
 from collections import deque
 import threading

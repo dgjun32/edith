@@ -9,12 +9,12 @@ import unittest
 from unittest.mock import patch
 import numpy as np
 
-from edith.policy_utils import load_policy
-from edith.policy_utils.chunked import ChunkedPolicy
-from edith.policy_utils.keyframes import KeyframePolicy
-from edith.policy_utils.openpi import OpenPIClient, pack, unpack
-from edith.policy_utils.processing import gaze_crop, packet
-from edith.policy_utils.tasks import Frame, Task, TaskQueue
+from edith.policies import load_policy
+from edith.policies.common.chunked import ChunkedPolicy
+from edith.policies.common.keyframes import KeyframePolicy
+from edith.policies.common.openpi import OpenPIClient, pack, unpack
+from edith.policies.common.processing import gaze_crop, packet
+from edith.policies.common.tasks import Frame, Task, TaskQueue
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,17 +72,17 @@ def next_command(policy, obs):
 class DirectoryTests(unittest.TestCase):
     def test_all_policy_directories_load_without_network_or_hardware(self):
         with patch(
-            "edith.policy_utils.openpi.OpenPIClient._connect",
+            "edith.policies.common.openpi.OpenPIClient._connect",
             side_effect=AssertionError("network"),
         ):
-            for path in sorted((ROOT / "policies").glob("*/policy.json")):
+            for path in sorted((ROOT / "edith/policies").glob("*/policy.json")):
                 with self.subTest(path=path):
                     policy = load_policy(path.parent)
                     self.assertEqual(policy.manifest["action_space"], "joint_position")
                     policy.close()
 
     def test_config_overrides_do_not_change_manifest_file(self):
-        path = ROOT / "policies/textvla"
+        path = ROOT / "edith/policies/textvla"
         before = (path / "policy.json").read_bytes()
         policy = load_policy(path, {"instruction": "test"})
         self.assertEqual(policy.manifest["config"]["instruction"], "test")
@@ -90,7 +90,7 @@ class DirectoryTests(unittest.TestCase):
         policy.close()
 
     def test_loader_rejects_action_chunks(self):
-        from edith.policy_utils.loader import LoadedPolicy
+        from edith.policies.loader import LoadedPolicy
         from types import SimpleNamespace
 
         policy = LoadedPolicy(
@@ -107,7 +107,7 @@ class DirectoryTests(unittest.TestCase):
                 root.mkdir()
                 (root / "helper.py").write_text(f"VALUE = {i}\n")
                 (root / "policy.py").write_text(
-                    "from .helper import VALUE\nclass Policy:\n def __init__(self, **kw): pass\n def act(self, obs): return [VALUE]\n"
+                    "from edith.policies import BasePolicy\nfrom .helper import VALUE\nclass Policy(BasePolicy):\n def act(self, obs): return [VALUE]\n"
                 )
                 (root / "policy.json").write_text(
                     json.dumps(
@@ -405,20 +405,20 @@ class WireTests(unittest.TestCase):
 
 class PlannerBackendTests(unittest.TestCase):
     def test_invalid_prompt_fails_before_creating_cloud_client(self):
-        from edith.policy_utils.planning import GeminiPlanner
+        from edith.policies.common.planning import GeminiPlanner
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test-only-placeholder"}):
             with patch("google.genai.Client") as client:
                 with self.assertRaises(FileNotFoundError):
                     GeminiPlanner(
-                        ROOT / "policies/policy_edith",
+                        ROOT / "edith/policies/policy_edith",
                         {"gemini_model": "test-model", "prompt_file": "missing.txt"},
                     )
                 client.assert_not_called()
 
     def test_gemini_payload_uses_real_frame_timestamps_and_source_prompt(self):
         from types import SimpleNamespace
-        from edith.policy_utils.planning import GeminiPlanner
+        from edith.policies.common.planning import GeminiPlanner
 
         calls = []
 
@@ -432,7 +432,7 @@ class PlannerBackendTests(unittest.TestCase):
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test-only-placeholder"}):
             with patch("google.genai.Client", return_value=client):
                 planner = GeminiPlanner(
-                    ROOT / "policies/policy_edith",
+                    ROOT / "edith/policies/policy_edith",
                     {
                         "gemini_model": "test-model",
                         "prompt_file": "prompts/passing_tools.txt",
@@ -464,7 +464,7 @@ class PlannerBackendTests(unittest.TestCase):
 
     def test_fam_hri_external_api_receives_rgb_gaze_and_dwell(self):
         from types import SimpleNamespace
-        from edith.policy_utils.fam_hri import FamHRIPlanner
+        from edith.policies.common.fam_hri import FamHRIPlanner
 
         received = []
 
@@ -484,7 +484,7 @@ class PlannerBackendTests(unittest.TestCase):
             process_utterance=process,
         )
         with patch(
-            "edith.policy_utils.fam_hri.importlib.import_module",
+            "edith.policies.common.fam_hri.importlib.import_module",
             return_value=pipeline,
         ):
             planner = FamHRIPlanner({"llm_model": "test", "min_dwell_s": 0.5})
@@ -514,7 +514,7 @@ class RunnerTests(unittest.TestCase):
     def test_station_preflight_failure_closes_policy(self):
         from edith.scripts.eval_policy_local import main
 
-        policy = load_policy(ROOT / "policies/textvla")
+        policy = load_policy(ROOT / "edith/policies/textvla")
         with patch(
             "edith.scripts.eval_policy_local.load_policy", return_value=policy
         ):
@@ -539,7 +539,7 @@ class RunnerTests(unittest.TestCase):
                     main(
                         [
                             "--policy-dir",
-                            str(ROOT / "policies/textvla"),
+                            str(ROOT / "edith/policies/textvla"),
                             "--check-policy-only",
                         ]
                     ),
@@ -557,7 +557,7 @@ class RunnerTests(unittest.TestCase):
                 main(
                     [
                         "--policy-dir",
-                        str(ROOT / "policies/textvla"),
+                        str(ROOT / "edith/policies/textvla"),
                         "--output-fps",
                         "30",
                     ]

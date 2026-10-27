@@ -1,10 +1,10 @@
 > **Gen 2 / YAM migration:** supported directory-policy adapters are in
-> [`policies/`](../../policies/README.md). The scripts below are historical
+> [`edith/policies/`](../policies/README.md). The scripts below are historical
 > references with their original hardware-owning evaluation loops. Use
 > `eval_policy_local --policy-dir ...` for the synchronized local runtime.
 
 **Migrated entry point:** `eval_openpi_ours_with_voice_260503.py` now launches
-[`policy_edith`](../../policies/policy_edith/README.md), using local Gen 2 USB
+[`policy_edith`](../policies/policy_edith/README.md), using local Gen 2 USB
 capture and ABC/YAM. Run `--help` for its current flags. The legacy controls
 and recording options documented below do not apply to that migrated launcher.
 For a hardware-free configuration check:
